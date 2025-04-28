@@ -1,0 +1,23 @@
+[project]
+authors = [{name = "Valerii Zuev", email = "valera.zuev.zva@gmail.com"}]
+description = "Tabular relationship-aware transformer"
+license = {text = "MIT"}
+name = "tabrel"
+readme = "README.md"
+requires-python = ">=3.8"
+version = "0.1.0"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77"]
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=tabrel --cov-report=xml"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.mypy]
+disallow_untyped_defs = true
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true

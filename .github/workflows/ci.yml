@@ -1,0 +1,14 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: mamba-org/provision-with-micromamba@v15
+      with:
+        environment-file: environment.yml
+    - run: micromamba run -n tabrel pytest tests/ -v
+    - run: micromamba run -n tabrel python -m mypy src/
