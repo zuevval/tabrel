@@ -6,6 +6,7 @@ channels:
 dependencies:
   - python=3.11
   - matplotlib
+  - numpy==1.26.4
   - scikit-learn
   - pytorch
   - torchvision
@@ -20,3 +21,4 @@ dependencies:
   - pip
   - pip:
     - pre-commit
+    - torch_geometric
