@@ -1,14 +1,37 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: mamba-org/provision-with-micromamba@v15
+    - uses: mamba-org/setup-micromamba@v2
       with:
         environment-file: environment.yml
-    - run: micromamba run -n tabrel pytest tests/ -v
-    - run: micromamba run -n tabrel python -m mypy src/
+        init-shell: >-
+          bash
+          powershell
+        cache-environment: true
+        post-cleanup: 'all'
+    - name: Static analysis with mypy
+      run: micromamba run -n tabrel python -m mypy src/
+    - name: Run tests with coverage
+      run: |
+        micromamba run -n tabrel pytest \
+          --cov=src/tabrel \
+          --cov-report=xml \
+          --cov-report=term \
+          test/ -v
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}

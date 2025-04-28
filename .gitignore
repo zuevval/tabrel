@@ -1,3 +1,8 @@
+# Coverage reports
+.coverage
+.coverage.*
+htmlcov/
+
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,python,visualstudiocode,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,python,visualstudiocode,jupyternotebooks
 
