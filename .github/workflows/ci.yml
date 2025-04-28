@@ -14,7 +14,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: mamba-org/setup-micromamba@v1
+    - name: Check out code
+      uses: actions/checkout@v3
+    - name: Set up Micromamba
+      uses: mamba-org/setup-micromamba@v2
       with:
         environment-file: environment.yml
         cache-environment: true
