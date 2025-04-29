@@ -22,7 +22,7 @@ class TabularTransformerClassifier(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=config.num_layers
         )
-        self.output_layer = nn.Linear(config.d_model, num_classes)
+        self.output_layer = nn.Linear(config.d_model, config.num_classes)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

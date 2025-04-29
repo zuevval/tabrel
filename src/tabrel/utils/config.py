@@ -26,12 +26,12 @@ class ClassifierConfig:
 class TrainingConfig:
     batch_size: int
     lr: float
-    epochs: int
+    n_epochs: int
     log_dir: str
 
     @staticmethod
     def default() -> "TrainingConfig":
-        return TrainingConfig(batch_size=32, lr=1e-4, epochs=100, log_dir="logs")
+        return TrainingConfig(batch_size=32, lr=1e-4, n_epochs=100, log_dir="logs")
 
 
 @dataclass(frozen=True)
