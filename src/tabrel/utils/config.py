@@ -2,15 +2,24 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class ModelConfig:  # TODO use Pydantic
+class ClassifierConfig:
     d_model: int  # Embedding dimension
-    nhead: int  # Attention heads
     num_layers: int  # Transformer layers
+    num_classes: int  # number of classes (= output dimension)
+    dim_feedforward: int
+    activation: str  # e.g. "relu"
     dropout: float
 
     @staticmethod
-    def default() -> "ModelConfig":
-        return ModelConfig(d_model=64, nhead=4, num_layers=3, dropout=0.1)
+    def default() -> "ClassifierConfig":
+        return ClassifierConfig(
+            d_model=64,
+            num_layers=3,
+            num_classes=2,
+            dim_feedforward=128,
+            activation="relu",
+            dropout=0.1,
+        )
 
 
 @dataclass(frozen=True)
@@ -27,12 +36,12 @@ class TrainingConfig:
 
 @dataclass(frozen=True)
 class ProjectConfig:
-    model: ModelConfig
+    model: ClassifierConfig
     training: TrainingConfig
     # use_wandb: bool    # TODO Enable Weights & Biases
 
     @staticmethod
     def default() -> "ProjectConfig":
         return ProjectConfig(
-            model=ModelConfig.default(), training=TrainingConfig.default()
+            model=ClassifierConfig.default(), training=TrainingConfig.default()
         )

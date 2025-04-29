@@ -1,7 +1,7 @@
 import numpy as np
 
 from tabrel.utils.config import (
-    ModelConfig,
+    ClassifierConfig,
     ProjectConfig,
     TrainingConfig,
 )
@@ -9,9 +9,16 @@ from tabrel.utils.config import (
 
 # --- Class-Based Config Tests ---
 def test_model_config() -> None:
-    cfg = ModelConfig(d_model=64, nhead=3, num_layers=1, dropout=0.0)
+    cfg = ClassifierConfig(
+        d_model=64,
+        num_layers=1,
+        num_classes=2,
+        dim_feedforward=128,
+        activation="relu",
+        dropout=0.0,
+    )
     assert cfg.d_model == 64
-    assert cfg.nhead == 3
+    assert cfg.num_layers == 1
     assert np.isclose(cfg.dropout, 0.0)
 
 
