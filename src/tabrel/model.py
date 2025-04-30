@@ -2,7 +2,7 @@ from typing import Final
 
 import torch
 import torch.nn as nn
-from rtdl_num_embeddings import PeriodicEmbeddings
+from rtdl_num_embeddings import PeriodicEmbeddings  # type:ignore
 
 from tabrel.utils.config import ClassifierConfig
 
