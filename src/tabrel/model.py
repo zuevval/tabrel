@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Callable, Final
 
 import torch
 import torch.nn as nn
@@ -31,7 +31,9 @@ class TabularTransformerClassifier(nn.Module):
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=config.num_layers
         )
-        self.output_layer = nn.Linear(self.d_model, config.num_classes)
+        self.output_layer: Callable[[torch.Tensor], torch.Tensor] = nn.Linear(
+            self.d_model, config.num_classes
+        )
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
