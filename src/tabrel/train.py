@@ -179,7 +179,8 @@ def main() -> None:
     out_dir = Path("output") / f"baseTransformer_syntheticData_{datetime.now()}"
     config = ProjectConfig(
         model=ClassifierConfig(
-            d_model=num_features,
+            n_features=num_features,
+            d_embedding=4,
             num_layers=2,
             num_classes=num_classes,
             dim_feedforward=128,

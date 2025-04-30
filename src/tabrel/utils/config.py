@@ -5,7 +5,8 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class ClassifierConfig:
-    d_model: int  # Embedding dimension
+    n_features: int
+    d_embedding: int  # Embedding dimension (for each feature)
     num_layers: int  # Transformer layers
     num_classes: int  # number of classes (= output dimension)
     dim_feedforward: int
@@ -15,7 +16,8 @@ class ClassifierConfig:
     @staticmethod
     def default() -> "ClassifierConfig":
         return ClassifierConfig(
-            d_model=64,
+            n_features=60,
+            d_embedding=24,
             num_layers=3,
             num_classes=2,
             dim_feedforward=128,
