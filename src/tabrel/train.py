@@ -191,11 +191,13 @@ def main() -> None:
             lr=1e-3,
             n_epochs=10,
             log_dir=out_dir / "logs",
+            log_level=logging.DEBUG,
+            print_logs_to_console=True,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=False,
         ),
     )
-    init_logging(config.training, level=logging.DEBUG, print_logs=True)
+    init_logging(config.training)
     train(train_data=train_dataset, val_data=val_dataset, config=config)
 
 

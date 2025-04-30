@@ -14,8 +14,10 @@ def test_init_logging() -> None:
             lr=0.0,
             n_epochs=0,
             log_dir=out_dir / "logs",
+            log_level=logging.INFO,
+            print_logs_to_console=True,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=False,
         )
-        init_logging(config, level=logging.INFO, print_logs=True)
+        init_logging(config)
         assert len(list(config.log_dir.glob("*.log"))) == 1

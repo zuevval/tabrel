@@ -4,12 +4,12 @@ from datetime import datetime
 from .config import TrainingConfig
 
 
-def init_logging(config: TrainingConfig, level: int, print_logs: bool) -> None:
+def init_logging(config: TrainingConfig) -> None:
     handlers: list[logging.Handler] = [
         logging.FileHandler(config.log_dir / f"{datetime.now()}.log")
     ]
 
-    if print_logs:
+    if config.print_logs_to_console:
         handlers.append(logging.StreamHandler())
 
-    logging.basicConfig(level=level, handlers=handlers)
+    logging.basicConfig(level=config.log_level, handlers=handlers)

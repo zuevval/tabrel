@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +30,8 @@ class TrainingConfig:
     lr: float
     n_epochs: int
     log_dir: Path
+    log_level: int
+    print_logs_to_console: bool
     checkpoints_dir: Path
     allow_dirs_exist: bool
 
@@ -44,6 +47,8 @@ class TrainingConfig:
             lr=1e-4,
             n_epochs=100,
             log_dir=out_dir / "logs",
+            log_level=logging.INFO,
+            print_logs_to_console=True,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=True,
         )
