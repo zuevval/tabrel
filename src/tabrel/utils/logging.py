@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from .config import TrainingConfig
+from tabrel.utils.config import TrainingConfig
 
 
 def init_logging(config: TrainingConfig) -> None:

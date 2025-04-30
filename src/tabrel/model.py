@@ -3,7 +3,8 @@ from typing import Final
 import torch
 import torch.nn as nn
 from rtdl_num_embeddings import PeriodicEmbeddings
-from utils.config import ClassifierConfig
+
+from tabrel.utils.config import ClassifierConfig
 
 
 class TabularTransformerClassifier(nn.Module):
@@ -48,26 +49,3 @@ class TabularTransformerClassifier(nn.Module):
         x = self.transformer_encoder(x)  # (B, 1, d_model)
         x = x.squeeze(1)  # (B, d_model)
         return self.output_layer(x)  # (B, num_classes) - logits
-
-
-# Example Usage
-if __name__ == "__main__":
-    batch_size = 32
-    num_features = 10
-    num_classes = 2
-
-    config = ClassifierConfig(
-        n_features=num_features,
-        d_embedding=3,
-        num_layers=2,
-        num_classes=num_classes,
-        dim_feedforward=128,
-        activation="relu",
-        dropout=0.1,
-    )
-    model = TabularTransformerClassifier(config)
-
-    dummy_input = torch.randn(batch_size, num_features)
-    output = model(dummy_input)
-
-    print("Output shape:", output.shape)  # Should be (batch_size, num_classes)
