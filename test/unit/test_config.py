@@ -26,6 +26,7 @@ def test_training_config() -> None:
     cfg = TrainingConfig.default()
     assert cfg.batch_size == 32
     assert np.isclose(cfg.lr, 1e-4)
+    assert cfg.checkpoints_dir.exists()
 
 
 def test_project_config() -> None:

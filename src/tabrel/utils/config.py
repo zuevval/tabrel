@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -27,11 +28,25 @@ class TrainingConfig:
     batch_size: int
     lr: float
     n_epochs: int
-    log_dir: str
+    log_dir: Path
+    checkpoints_dir: Path
+    allow_dirs_exist: bool
+
+    def __post_init__(self) -> None:
+        for dir in (self.log_dir, self.checkpoints_dir):
+            dir.mkdir(parents=True, exist_ok=self.allow_dirs_exist)
 
     @staticmethod
     def default() -> "TrainingConfig":
-        return TrainingConfig(batch_size=32, lr=1e-4, n_epochs=100, log_dir="logs")
+        out_dir = Path("output")
+        return TrainingConfig(
+            batch_size=32,
+            lr=1e-4,
+            n_epochs=100,
+            log_dir=out_dir / "logs",
+            checkpoints_dir=out_dir / "checkpoints",
+            allow_dirs_exist=True,
+        )
 
 
 @dataclass(frozen=True)
