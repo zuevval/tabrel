@@ -26,8 +26,8 @@ class TabularTransformerClassifier(nn.Module):
             dim_feedforward=config.dim_feedforward,
             dropout=config.dropout,
             activation=config.activation,
-            batch_first=True,  # Important for tabular data (B, S, E) layout
-        )
+            batch_first=True,  # Important for tabular data (B, S, F) layout
+        )  # B - batch size; S - sequence length; F - number of features (d_model)
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, num_layers=config.num_layers
         )
@@ -39,15 +39,15 @@ class TabularTransformerClassifier(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Tensor of shape (batch_size, self.config.n_features)
+            x: Tensor of shape (sample_size, self.config.n_features)
         Returns:
-            logits: Tensor of shape (batch_size, self.config.num_classes)
+            logits: Tensor of shape (sample_size, self.config.num_classes)
         """
-        x = self.embeddings(x)  # (B, config.n_features, config.d_embedding)
-        x = self.flatten(x)  # (B, d_model)
+        x = self.embeddings(x)  # (S, config.n_features, config.d_embedding)
+        x = self.flatten(x)  # (S, d_model)
 
         # Expand dimensions: Transformer expects (B, S, E)
-        x = x.unsqueeze(1)  # (B, 1, d_model)
-        x = self.transformer_encoder(x)  # (B, 1, d_model)
-        x = x.squeeze(1)  # (B, d_model)
-        return self.output_layer(x)  # (B, num_classes) - logits
+        x = x.unsqueeze(0)  # (1, S, d_model)
+        x = self.transformer_encoder(x)  # (1, S, d_model)
+        x = x.squeeze(0)  # (S, d_model)
+        return self.output_layer(x)  # (S, num_classes) - logits
