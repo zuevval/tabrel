@@ -12,9 +12,11 @@ def test_model_config() -> None:
     cfg = ClassifierConfig(
         n_features=10,
         d_embedding=25,
+        d_model=10,
+        nhead=2,
+        dim_feedforward=128,
         num_layers=1,
         num_classes=2,
-        dim_feedforward=128,
         activation="relu",
         dropout=0.0,
     )

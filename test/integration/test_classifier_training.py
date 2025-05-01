@@ -28,9 +28,11 @@ def test_simple_training() -> None:
         model=ClassifierConfig(
             n_features=num_features,
             d_embedding=4,
+            d_model=50,
+            nhead=2,
+            dim_feedforward=128,
             num_layers=2,
             num_classes=num_classes,
-            dim_feedforward=128,
             activation="relu",
             dropout=0.1,
         ),

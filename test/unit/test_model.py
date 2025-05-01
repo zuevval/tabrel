@@ -21,9 +21,11 @@ def test_tabular_transformer_classifier(
     config = ClassifierConfig(
         n_features=num_features,
         d_embedding=3,
+        d_model=64,
+        nhead=4,
+        dim_feedforward=128,
         num_layers=2,
         num_classes=n_classes,
-        dim_feedforward=128,
         activation="relu",
         dropout=0.1,
     )

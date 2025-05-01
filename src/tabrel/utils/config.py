@@ -7,20 +7,28 @@ from pathlib import Path
 class ClassifierConfig:
     n_features: int
     d_embedding: int  # Embedding dimension (for each feature)
+    d_model: int  # Transformer layer dimension (number of features)
+    nhead: int  # Number of transformer heads. Required: d_model % nhead = 0
+    dim_feedforward: int  # Feedforward model dimension of the Transformer layer
     num_layers: int  # Transformer layers
     num_classes: int  # number of classes (= output dimension)
-    dim_feedforward: int
     activation: str  # e.g. "relu"
     dropout: float
+
+    def __post_init__(self) -> None:
+        if self.d_model % self.nhead != 0:
+            raise ValueError("`d_model` must be divisible by `nhead`")
 
     @staticmethod
     def default() -> "ClassifierConfig":
         return ClassifierConfig(
             n_features=60,
             d_embedding=24,
+            d_model=64,
+            nhead=4,
+            dim_feedforward=128,
             num_layers=3,
             num_classes=2,
-            dim_feedforward=128,
             activation="relu",
             dropout=0.1,
         )
