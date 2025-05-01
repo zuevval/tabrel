@@ -1,4 +1,7 @@
+import dataclasses
+
 import numpy as np
+import pytest
 
 from tabrel.utils.config import (
     ClassifierConfig,
@@ -8,7 +11,7 @@ from tabrel.utils.config import (
 
 
 # --- Class-Based Config Tests ---
-def test_model_config() -> None:
+def test_classifier_config_basic() -> None:
     cfg = ClassifierConfig(
         n_features=10,
         d_embedding=25,
@@ -23,6 +26,14 @@ def test_model_config() -> None:
     assert cfg.d_embedding == 25
     assert cfg.num_layers == 1
     assert np.isclose(cfg.dropout, 0.0)
+
+
+def test_classifier_config_exception() -> None:
+    cfg = ClassifierConfig.default()
+    assert cfg.d_model == 64
+
+    with pytest.raises(ValueError):
+        dataclasses.replace(cfg, nhead=5)
 
 
 def test_training_config() -> None:

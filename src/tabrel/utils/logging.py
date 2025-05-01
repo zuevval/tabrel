@@ -12,4 +12,8 @@ def init_logging(config: TrainingConfig) -> None:
     if config.print_logs_to_console:
         handlers.append(logging.StreamHandler())
 
-    logging.basicConfig(level=config.log_level, handlers=handlers)
+    logger = logging.getLogger()
+    logger.setLevel(config.log_level)
+    logger.handlers.clear()
+    for h in handlers:
+        logger.addHandler(h)

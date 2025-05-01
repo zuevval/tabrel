@@ -76,16 +76,15 @@ def save_checkpoint(
     model: TabularTransformerClassifier,
     optimizer: torch.optim.Adam,
     output_path: Path,
-    add_dict: dict[str, Any],
+    add_dict: dict[str, Any] | None = None,
 ) -> None:
-    torch.save(
-        {
-            "model_state": model.state_dict(),
-            "optimizer_state": optimizer.state_dict(),
-            **add_dict,
-        },
-        output_path,
-    )
+    dict_to_save = {
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+    }
+    if add_dict:
+        dict_to_save.update(add_dict)
+    torch.save(dict_to_save, output_path)
     logging.info(f"checkpoint saved at {output_path}")
 
 
@@ -99,11 +98,13 @@ def load_checkpoint(
                 f"Checkpoint directory '{checkpoint_dir}' "
                 "does not exist and `checkpoint_path` not set"
             )
+        checkpoints = list(checkpoint_dir.glob("*.pth"))
+        if len(checkpoints) == 0:
+            raise FileNotFoundError(f"no checkpoints in {checkpoint_dir}")
+        checkpoint_path = checkpoints[-1]
+    logging.info(f"Loading model and optimizer from checkpoint: {checkpoint_path}")
 
-    latest_checkpoint = list(checkpoint_dir.glob("*.pth"))[-1]
-    logging.info(f"Loading model and optimizer from checkpoint: {latest_checkpoint}")
-
-    state_dict = torch.load(latest_checkpoint, map_location=device)
+    state_dict = torch.load(checkpoint_path, map_location=device)
 
     model = TabularTransformerClassifier(config.model).to(device)
     model.load_state_dict(state_dict[_model_state_key])
