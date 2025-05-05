@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -8,7 +9,10 @@ from tabrel.utils.config import ClassifierConfig, ProjectConfig, TrainingConfig
 
 
 def get_output_dir() -> Path:
-    result = Path("output")
+    out_path_var_name = "OUT_PATH"
+    result = Path(
+        os.environ[out_path_var_name] if out_path_var_name in os.environ else "output"
+    )
     result.mkdir(exist_ok=True, parents=True)
     return result
 

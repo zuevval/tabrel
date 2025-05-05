@@ -13,6 +13,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OUT_PATH: output
     steps:
     - name: Check out code
       uses: actions/checkout@v3
@@ -25,13 +27,14 @@ jobs:
     - name: Static analysis with mypy
       run: micromamba run -n tabrel python -m mypy src/
     - name: Run tests with coverage
-      run: |
-        micromamba run -n tabrel pytest \
-          --cov=src/tabrel \
-          --cov-report=xml \
-          --cov-report=term \
-          test/ -v
+      run: pytest test/ --cov-report=term && cp coverage.xml ${{ env.OUT_PATH }}
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+    - name: Publish tests artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tests output
+        path: ${{ env.OUT_PATH }}
+      if: success() || failure()
