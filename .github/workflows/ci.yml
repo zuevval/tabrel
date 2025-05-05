@@ -27,7 +27,9 @@ jobs:
     - name: Static analysis with mypy
       run: micromamba run -n tabrel python -m mypy src/
     - name: Run tests with coverage
-      run: pytest test/ --cov-report=term && cp coverage.xml ${{ env.OUT_PATH }}
+      run: |
+        micromamba run -n tabrel python -m pytest test/ --cov-report=term
+        cp coverage.xml ${{ env.OUT_PATH }}
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
