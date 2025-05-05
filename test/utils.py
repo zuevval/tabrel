@@ -21,7 +21,7 @@ def make_test_dir(request: pytest.FixtureRequest) -> Path:
     result = (
         get_output_dir()
         / str(request.node.originalname)
-        / datetime.now().isoformat(sep="_")
+        / datetime.now().isoformat(sep="_").replace(":", "-")
     )
     result.mkdir(parents=True)
     return result
