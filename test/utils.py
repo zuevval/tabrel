@@ -33,6 +33,7 @@ def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectC
             dim_feedforward=128,
             num_layers=2,
             num_classes=num_classes,
+            batch_query_ratio=0.3,
             activation="relu",
             dropout=0.1,
         ),

@@ -12,6 +12,7 @@ class ClassifierConfig:
     dim_feedforward: int  # Feedforward model dimension of the Transformer layer
     num_layers: int  # Transformer layers
     num_classes: int  # number of classes (= output dimension)
+    batch_query_ratio: float  # proportions of query samples in batch
     activation: str  # e.g. "relu"
     dropout: float
 
@@ -29,6 +30,7 @@ class ClassifierConfig:
             dim_feedforward=128,
             num_layers=3,
             num_classes=2,
+            batch_query_ratio=0.3,
             activation="relu",
             dropout=0.1,
         )

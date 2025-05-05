@@ -43,25 +43,28 @@ def run_epoch(
     correct: int = 0
     total: int = 0
 
-    for x_batch, y_batch in dataloader:
-        x_batch = x_batch.to(device)
-        y_batch = y_batch.to(device)
+    for x, y in dataloader:
+        x = x.to(device)
+        y = y.to(device)
 
         if optimizer:  # if train mode
             optimizer.zero_grad()
 
         with torch.set_grad_enabled(optimizer is not None):
-            outputs = model(x_batch)
-            loss = criterion(outputs, y_batch)
+            outputs = model(x, y)
+
+            batch_size, query_size = model.get_batch_query_sizes(len(x))
+            y_query = y[batch_size:]
+            loss = criterion(outputs, y_query)
 
             if optimizer:
                 loss.backward()
                 optimizer.step()
 
-        running_loss += loss.item() * x_batch.size(0)
+        running_loss += loss.item() * batch_size
         _, preds = torch.max(outputs, dim=1)
-        correct += (preds == y_batch).sum().item()
-        total += y_batch.size(0)
+        correct += (preds == y_query).sum().item()
+        total += query_size
 
     epoch_loss = running_loss / total
     epoch_acc = correct / total
