@@ -1,11 +1,11 @@
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from tabrel.utils.config import ClassifierConfig, ProjectConfig, TrainingConfig
+from tabrel.utils.logging import datetime_str
 
 
 def get_output_dir() -> Path:
@@ -18,11 +18,7 @@ def get_output_dir() -> Path:
 
 
 def make_test_dir(request: pytest.FixtureRequest) -> Path:
-    result = (
-        get_output_dir()
-        / str(request.node.originalname)
-        / datetime.now().isoformat(sep="_").replace(":", "-")
-    )
+    result = get_output_dir() / str(request.node.originalname) / datetime_str()
     result.mkdir(parents=True)
     return result
 
