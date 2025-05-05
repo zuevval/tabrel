@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from test.utils import make_test_dir
+from test.utils import light_config, make_test_dir
 from typing import Final
 
 import pytest
@@ -14,34 +14,7 @@ from tabrel.train import (
     save_checkpoint,
     train,
 )
-from tabrel.utils.config import ClassifierConfig, ProjectConfig, TrainingConfig
 from tabrel.utils.logging import init_logging
-
-
-def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectConfig:
-    return ProjectConfig(
-        model=ClassifierConfig(
-            n_features=num_features,
-            d_embedding=4,
-            d_model=50,
-            nhead=2,
-            dim_feedforward=128,
-            num_layers=2,
-            num_classes=num_classes,
-            activation="relu",
-            dropout=0.1,
-        ),
-        training=TrainingConfig(
-            batch_size=32,
-            lr=1e-3,
-            n_epochs=4,
-            log_dir=out_dir / "logs",
-            log_level=logging.DEBUG,
-            print_logs_to_console=False,
-            checkpoints_dir=out_dir / "checkpoints",
-            allow_dirs_exist=False,
-        ),
-    )
 
 
 def test_load_checkpoint(request: pytest.FixtureRequest) -> None:

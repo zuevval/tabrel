@@ -93,14 +93,11 @@ def load_checkpoint(
 ) -> tuple[TabularTransformerClassifier, optim.Adam]:
     if not checkpoint_path:
         checkpoint_dir = Path(config.training.checkpoints_dir)
-        if not checkpoint_dir.exists():
-            raise FileNotFoundError(
-                f"Checkpoint directory '{checkpoint_dir}' "
-                "does not exist and `checkpoint_path` not set"
-            )
         checkpoints = list(checkpoint_dir.glob("*.pth"))
         if len(checkpoints) == 0:
-            raise FileNotFoundError(f"no checkpoints in {checkpoint_dir}")
+            msg = f"no checkpoints in {checkpoint_dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
         checkpoint_path = checkpoints[-1]
     logging.info(f"Loading model and optimizer from checkpoint: {checkpoint_path}")
 
