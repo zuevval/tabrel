@@ -1,3 +1,6 @@
+# output artifacts
+output
+
 # Coverage reports
 .coverage
 .coverage.*

@@ -21,4 +21,5 @@ dependencies:
   - pip
   - pip:
     - pre-commit
+    - rtdl-num-embeddings
     - torch_geometric
