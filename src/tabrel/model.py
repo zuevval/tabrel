@@ -7,12 +7,12 @@ from rtdl_num_embeddings import PeriodicEmbeddings  # type:ignore
 from tabrel.utils.config import ClassifierConfig
 
 
-class TabularTransformerClassifier(nn.Module):
+class TabularTransformerClassifierModel(nn.Module):
     config: Final[ClassifierConfig]
     d_input: Final[int]
 
     def __init__(self, config: ClassifierConfig):
-        super(TabularTransformerClassifier, self).__init__()
+        super(TabularTransformerClassifierModel, self).__init__()
 
         self.embeddings = PeriodicEmbeddings(
             n_features=config.n_features, d_embedding=config.d_embedding, lite=True

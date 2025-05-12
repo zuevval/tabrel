@@ -6,7 +6,7 @@ from typing import Final
 import pytest
 import torch
 
-from tabrel.model import TabularTransformerClassifier
+from tabrel.model import TabularTransformerClassifierModel
 from tabrel.train import (
     generate_synthetic_data,
     load_checkpoint,
@@ -26,7 +26,7 @@ def test_load_checkpoint(request: pytest.FixtureRequest) -> None:
         out_dir=out_dir, num_features=num_features, num_classes=num_classes
     )
     init_logging(config.training)
-    model = TabularTransformerClassifier(config.model)
+    model = TabularTransformerClassifierModel(config.model)
     optimizer = torch.optim.Adam(model.parameters())
 
     checkpoint_path = config.training.checkpoints_dir / "checkpoint.pth"

@@ -8,12 +8,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from tabrel.dataset import QueryUniqueBatchDataset
-from tabrel.model import TabularTransformerClassifier
+from tabrel.model import TabularTransformerClassifierModel
 from tabrel.utils.config import ProjectConfig, TrainingConfig
 
 
 def run_epoch(
-    model: TabularTransformerClassifier,
+    model: TabularTransformerClassifierModel,
     dataloader: DataLoader,
     criterion: torch.nn.Module,
     device: torch.device,
@@ -77,7 +77,7 @@ _optim_state_key: Final[str] = "optimizer_state"
 
 
 def save_checkpoint(
-    model: TabularTransformerClassifier,
+    model: TabularTransformerClassifierModel,
     optimizer: torch.optim.Adam,
     output_path: Path,
     add_dict: dict[str, Any] | None = None,
@@ -94,7 +94,7 @@ def save_checkpoint(
 
 def load_checkpoint(
     config: ProjectConfig, device: torch.device, checkpoint_path: Path | None = None
-) -> tuple[TabularTransformerClassifier, optim.Adam]:
+) -> tuple[TabularTransformerClassifierModel, optim.Adam]:
     if not checkpoint_path:
         checkpoint_dir = Path(config.training.checkpoints_dir)
         checkpoints = list(checkpoint_dir.glob("*.pth"))
@@ -107,7 +107,7 @@ def load_checkpoint(
 
     state_dict = torch.load(checkpoint_path, map_location=device)
 
-    model = TabularTransformerClassifier(config.model).to(device)
+    model = TabularTransformerClassifierModel(config.model).to(device)
     model.load_state_dict(state_dict[_model_state_key])
     optimizer = optim.Adam(model.parameters(), lr=config.training.lr)
     optimizer.load_state_dict(state_dict[_optim_state_key])
@@ -124,7 +124,7 @@ def train(
     val_loader = DataLoader(val_data, batch_size=None)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = TabularTransformerClassifier(config.model).to(device)
+    model = TabularTransformerClassifierModel(config.model).to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config.training.lr)

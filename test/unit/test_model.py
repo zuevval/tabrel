@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from tabrel.model import TabularTransformerClassifier
+from tabrel.model import TabularTransformerClassifierModel
 from tabrel.utils.config import ClassifierConfig
 
 
@@ -31,7 +31,7 @@ def test_tabular_transformer_classifier(
         activation="relu",
         dropout=0.1,
     )
-    model = TabularTransformerClassifier(config)
+    model = TabularTransformerClassifierModel(config)
 
     xb = torch.randn(batch_size, num_features)
     xq = torch.randn(query_size, num_features)
