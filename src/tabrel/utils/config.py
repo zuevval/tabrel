@@ -12,7 +12,6 @@ class ClassifierConfig:
     dim_feedforward: int  # Feedforward model dimension of the Transformer layer
     num_layers: int  # Transformer layers
     num_classes: int  # number of classes (= output dimension)
-    batch_query_ratio: float  # proportions of query samples in batch
     activation: str  # e.g. "relu"
     dropout: float
 
@@ -30,7 +29,6 @@ class ClassifierConfig:
             dim_feedforward=128,
             num_layers=3,
             num_classes=2,
-            batch_query_ratio=0.3,
             activation="relu",
             dropout=0.1,
         )
@@ -39,6 +37,8 @@ class ClassifierConfig:
 @dataclass(frozen=True)
 class TrainingConfig:
     batch_size: int
+    query_size: int  # batch consists of batch samples and query samples
+    n_batches: int
     lr: float
     n_epochs: int
     log_dir: Path
@@ -46,6 +46,7 @@ class TrainingConfig:
     print_logs_to_console: bool
     checkpoints_dir: Path
     allow_dirs_exist: bool
+    random_seed: int
 
     def __post_init__(self) -> None:
         for dir in (self.log_dir, self.checkpoints_dir):
@@ -56,6 +57,8 @@ class TrainingConfig:
         out_dir = Path("output")
         return TrainingConfig(
             batch_size=32,
+            query_size=32,
+            n_batches=10,
             lr=1e-4,
             n_epochs=100,
             log_dir=out_dir / "logs",
@@ -63,6 +66,7 @@ class TrainingConfig:
             print_logs_to_console=True,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=True,
+            random_seed=42,
         )
 
 

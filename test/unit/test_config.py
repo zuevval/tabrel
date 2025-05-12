@@ -20,7 +20,6 @@ def test_classifier_config_basic() -> None:
         dim_feedforward=128,
         num_layers=1,
         num_classes=2,
-        batch_query_ratio=0.5,
         activation="relu",
         dropout=0.0,
     )

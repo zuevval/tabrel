@@ -11,6 +11,8 @@ def test_init_logging() -> None:
         out_dir = Path(temp_dir)
         config = TrainingConfig(
             batch_size=0,
+            query_size=0,
+            n_batches=0,
             lr=0.0,
             n_epochs=0,
             log_dir=out_dir / "logs",
@@ -18,6 +20,7 @@ def test_init_logging() -> None:
             print_logs_to_console=True,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=False,
+            random_seed=0,
         )
         init_logging(config)
         assert len(list(config.log_dir.glob("*.log"))) == 1

@@ -5,10 +5,11 @@ from typing import Any, Final
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 
+from tabrel.dataset import QueryUniqueBatchDataset
 from tabrel.model import TabularTransformerClassifier
-from tabrel.utils.config import ProjectConfig
+from tabrel.utils.config import ProjectConfig, TrainingConfig
 
 
 def run_epoch(
@@ -25,7 +26,7 @@ def run_epoch(
         model (TabularTransformerClassifier): The NN model
         dataloader (DataLoader): A data loader for the training or validation set
         criterion (torch.nn.Module): The loss function
-        device (torch.device): The device. Can be either a GPU or a CPU.
+        device (torch.device): The device. Can be either a GPU or a CPU
         optimizer (torch.optim.Optimizer | None, optional): If specified,
             the optimizer for gradient descent.
             If None, the model is not trained during the current epoch
@@ -43,28 +44,28 @@ def run_epoch(
     correct: int = 0
     total: int = 0
 
-    for x, y in dataloader:
-        x = x.to(device)
-        y = y.to(device)
+    for xb, yb, xq, yq in dataloader:
+        xb = xb.to(device)  # x_batch
+        yb = yb.to(device)  # y_batch
+        xq = xq.to(device)  # x_query
+        yq = yq.to(device)  # y_query
 
         if optimizer:  # if train mode
             optimizer.zero_grad()
 
         with torch.set_grad_enabled(optimizer is not None):
-            outputs = model(x, y)
+            outputs = model(xb, yb, xq)
 
-            batch_size, query_size = model.get_batch_query_sizes(len(x))
-            y_query = y[batch_size:]
-            loss = criterion(outputs, y_query)
+            loss = criterion(outputs, yq)
 
             if optimizer:
                 loss.backward()
                 optimizer.step()
 
-        running_loss += loss.item() * batch_size
+        running_loss += loss.item() * len(xb)
         _, preds = torch.max(outputs, dim=1)
-        correct += (preds == y_query).sum().item()
-        total += query_size
+        correct += (preds == yq).sum().item()
+        total += len(yq)
 
     epoch_loss = running_loss / total
     epoch_acc = correct / total
@@ -115,12 +116,12 @@ def load_checkpoint(
 
 
 def train(
-    train_data: TensorDataset, val_data: TensorDataset, config: ProjectConfig
+    train_data: QueryUniqueBatchDataset,
+    val_data: QueryUniqueBatchDataset,
+    config: ProjectConfig,
 ) -> None:
-    train_loader = DataLoader(
-        train_data, batch_size=config.training.batch_size, shuffle=True
-    )
-    val_loader = DataLoader(val_data, batch_size=config.training.batch_size)
+    train_loader = DataLoader(train_data, batch_size=None)
+    val_loader = DataLoader(val_data, batch_size=None)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = TabularTransformerClassifier(config.model).to(device)
@@ -160,3 +161,16 @@ def generate_synthetic_data(
     x = torch.randn(num_samples, num_features)
     y = torch.randint(0, num_classes, (num_samples,))
     return x, y
+
+
+def wrap_data(
+    x: torch.Tensor, y: torch.Tensor, config: TrainingConfig
+) -> QueryUniqueBatchDataset:
+    return QueryUniqueBatchDataset(
+        x,
+        y,
+        query_size=config.query_size,
+        batch_size=config.batch_size,
+        n_batches=config.n_batches,
+        random_state=config.random_seed,
+    )
