@@ -1,5 +1,5 @@
 {
-    "jupyter.notebookFileRoot": "${workspaceFolder}",
+    "jupyter.notebookFileRoot": "${workspaceFolder}/src",
     "python.testing.pytestArgs": [
         "test"
     ],
