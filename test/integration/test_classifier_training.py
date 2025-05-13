@@ -5,14 +5,14 @@ from typing import Final
 
 import pytest
 import torch
-from torch.utils.data import TensorDataset
 
-from tabrel.model import TabularTransformerClassifier
+from tabrel.model import TabularTransformerClassifierModel
 from tabrel.train import (
     generate_synthetic_data,
     load_checkpoint,
     save_checkpoint,
     train,
+    wrap_data,
 )
 from tabrel.utils.logging import init_logging
 
@@ -26,7 +26,7 @@ def test_load_checkpoint(request: pytest.FixtureRequest) -> None:
         out_dir=out_dir, num_features=num_features, num_classes=num_classes
     )
     init_logging(config.training)
-    model = TabularTransformerClassifier(config.model)
+    model = TabularTransformerClassifierModel(config.model)
     optimizer = torch.optim.Adam(model.parameters())
 
     checkpoint_path = config.training.checkpoints_dir / "checkpoint.pth"
@@ -56,12 +56,13 @@ def test_simple_training(request: pytest.FixtureRequest) -> None:
         num_samples=200, num_features=num_features, num_classes=num_classes
     )
 
-    train_dataset = TensorDataset(x_train, y_train)
-    val_dataset = TensorDataset(x_val, y_val)
-
     out_dir = make_test_dir(request)
     config = light_config(
         out_dir=out_dir, num_features=num_features, num_classes=num_classes
     )
+
+    train_dataset = wrap_data(x_train, y_train, config.training)
+    val_dataset = wrap_data(x_val, y_val, config.training)
+
     init_logging(config.training)
     train(train_data=train_dataset, val_data=val_dataset, config=config)

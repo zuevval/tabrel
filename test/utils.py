@@ -33,12 +33,13 @@ def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectC
             dim_feedforward=128,
             num_layers=2,
             num_classes=num_classes,
-            batch_query_ratio=0.3,
             activation="relu",
             dropout=0.1,
         ),
         training=TrainingConfig(
             batch_size=32,
+            query_size=16,
+            n_batches=5,
             lr=1e-3,
             n_epochs=4,
             log_dir=out_dir / "logs",
@@ -46,5 +47,6 @@ def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectC
             print_logs_to_console=False,
             checkpoints_dir=out_dir / "checkpoints",
             allow_dirs_exist=False,
+            random_seed=42,
         ),
     )

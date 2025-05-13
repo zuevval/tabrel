@@ -7,12 +7,12 @@ from rtdl_num_embeddings import PeriodicEmbeddings  # type:ignore
 from tabrel.utils.config import ClassifierConfig
 
 
-class TabularTransformerClassifier(nn.Module):
+class TabularTransformerClassifierModel(nn.Module):
     config: Final[ClassifierConfig]
     d_input: Final[int]
 
     def __init__(self, config: ClassifierConfig):
-        super(TabularTransformerClassifier, self).__init__()
+        super(TabularTransformerClassifierModel, self).__init__()
 
         self.embeddings = PeriodicEmbeddings(
             n_features=config.n_features, d_embedding=config.d_embedding, lite=True
@@ -39,27 +39,24 @@ class TabularTransformerClassifier(nn.Module):
         )
         self.config = config
 
-    def get_batch_query_sizes(self, sample_size: int) -> tuple[int, int]:
-        b_q_ratio = self.config.batch_query_ratio
-        q_size = int(sample_size * b_q_ratio)
-        return sample_size - q_size, q_size
-
-    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, xb: torch.Tensor, yb: torch.Tensor, xq: torch.Tensor
+    ) -> torch.Tensor:
         """
         Args:
-            x: Tensor of shape (sample_size, self.config.n_features)
-            y: Tensor of shape (sample_size)
+            xb: Tensor of shape (batch_size, self.config.n_features)
+            yb: Tensor of shape (batch_size)
+            xq: Tensor of shape (query_size, self.config.n_features)
         Returns:
             logits: Tensor of shape (query_size, self.config.num_classes)
-            where query_size = np.floor(sample_size * self.config.batch_query_ratio)
         """
+        x = torch.cat((xb, xq), 0)  # (S, config.n_features) [S = b+q - sample size]
         x = self.embeddings(x)  # (S, config.n_features, config.d_embedding)
         x = self.flatten(x)  # (S, d_input - 1)
 
         # add y
-        sample_size = len(x)
-        batch_size, query_size = self.get_batch_query_sizes(sample_size)
-        y_masked = torch.cat((y[:batch_size], torch.zeros(query_size)), 0)
+        sample_size, batch_size, query_size = len(x), len(xb), len(xq)
+        y_masked = torch.cat((yb, torch.zeros(query_size)), 0)
         x = torch.cat((x, y_masked.unsqueeze(1)), 1)  # (S, d_input)
         x = self.projection_layer(x)  # (S, d_model)
 
