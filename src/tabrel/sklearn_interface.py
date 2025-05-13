@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import torch
-from sklearn.base import BaseEstimator, ClassifierMixin, check_is_fitted
+from sklearn.base import BaseEstimator, ClassifierMixin, check_is_fitted  # type:ignore
 
 from tabrel.model import TabularTransformerClassifierModel
 from tabrel.train import run_epoch, wrap_data

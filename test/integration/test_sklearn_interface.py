@@ -4,7 +4,7 @@ from typing import Final
 
 import numpy as np
 import pytest
-from sklearn.exceptions import NotFittedError
+from sklearn.exceptions import NotFittedError  # type:ignore
 
 from tabrel.sklearn_interface import TabularTransformerClassifier
 from tabrel.utils.config import ProjectConfig
