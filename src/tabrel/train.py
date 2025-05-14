@@ -44,17 +44,18 @@ def run_epoch(
     correct: int = 0
     total: int = 0
 
-    for xb, yb, xq, yq in dataloader:
+    for xb, yb, xq, yq, r in dataloader:
         xb = xb.to(device)  # x_batch
         yb = yb.to(device)  # y_batch
         xq = xq.to(device)  # x_query
         yq = yq.to(device)  # y_query
+        r = r.to(device)  # relationships
 
         if optimizer:  # if train mode
             optimizer.zero_grad()
 
         with torch.set_grad_enabled(optimizer is not None):
-            outputs = model(xb, yb, xq)
+            outputs = model(xb, yb, xq, r)
 
             loss = criterion(outputs, yq)
 

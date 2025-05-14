@@ -20,12 +20,15 @@ def test_batch_shapes_and_uniqueness() -> None:
     )
 
     all_queries = []
-    for xb, yb, xq, yq in ds:
+    for xb, yb, xq, yq, r in ds:
         # Check shapes
         assert xb.shape == (batch_size, n_features)
         assert xq.shape == (query_size, n_features)
         assert yb.shape == (batch_size,)
         assert yq.shape == (query_size,)
+
+        sample_size = batch_size + query_size
+        assert r.shape == (sample_size, sample_size)
 
         # Accumulate queries
         all_queries.append(xq)
@@ -70,8 +73,9 @@ def test_determinism() -> None:
         x, y, query_size=5, batch_size=5, n_batches=3, random_state=123
     )
 
-    for (xb1, yb1, xq1, yq1), (xb2, yb2, xq2, yq2) in zip(ds1, ds2):
+    for (xb1, yb1, xq1, yq1, r1), (xb2, yb2, xq2, yq2, r2) in zip(ds1, ds2):
         assert torch.equal(xb1, xb2)
         assert torch.equal(xq1, xq2)
         assert torch.equal(yb1, yb2)
         assert torch.equal(yq1, yq2)
+        assert torch.equal(r1, r2)

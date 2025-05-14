@@ -28,7 +28,9 @@ class QueryUniqueBatchDataset(IterableDataset):
 
     def __iter__(
         self,
-    ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ) -> Iterator[
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ]:
         g = torch.Generator().manual_seed(self.random_state)
 
         perm = torch.randperm(len(self.x), generator=g)
@@ -49,4 +51,5 @@ class QueryUniqueBatchDataset(IterableDataset):
             xb = self.x[b_idx]
             yb = self.y[b_idx]
 
-            yield xb, yb, xq, yq
+            r = torch.eye(len(xb) + len(xq))  # relationship matrix
+            yield xb, yb, xq, yq, r

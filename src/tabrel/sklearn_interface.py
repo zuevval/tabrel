@@ -70,10 +70,13 @@ class TabularTransformerClassifier(ClassifierMixin, BaseEstimator):
             np.ndarray: The predicted labels
         """
         x_query = torch.tensor(X, dtype=torch.float32)
+        check_is_fitted(self, attributes=["fit_data_"])
+        r = torch.eye(
+            len(self.fit_data_.x_train) + len(x_query)
+        )  # relationships matrix
         with torch.no_grad():
-            check_is_fitted(self, attributes=["fit_data_"])
             outputs = self.fit_data_.model(
-                xb=self.fit_data_.x_train, yb=self.fit_data_.y_train, xq=x_query
+                xb=self.fit_data_.x_train, yb=self.fit_data_.y_train, xq=x_query, r=r
             )
             _, predicted = torch.max(outputs, 1)
             return predicted.numpy()
