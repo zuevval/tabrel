@@ -4,21 +4,34 @@ from typing import Iterator
 import torch
 from torch.utils.data import IterableDataset
 
+from tabrel.utils.linalg import is_symmetric
+
 
 @dataclass(frozen=True)
 class QueryUniqueBatchDataset(IterableDataset):
     x: torch.Tensor
     y: torch.Tensor
+    r: torch.Tensor  # n_samples x n_samples relationships matrix
     query_size: int
     batch_size: int
     n_batches: int
     random_state: int
 
     def __post_init__(self) -> None:
-        if len(self.x) != len(self.y):
+        n_samples = len(self.x)
+        if n_samples != len(self.y):
             raise ValueError(
-                f"Dimension mismatch: len(x)={len(self.x)} != len(y)={len(self.y)}"
+                f"Dimension mismatch: len(x)={n_samples} != len(y)={len(self.y)}"
             )
+
+        expected_r_shape = (n_samples, n_samples)
+        if self.r.shape != expected_r_shape:
+            raise ValueError(
+                f"wrong r.shape: {self.r.shape}, should be {expected_r_shape}"
+            )
+
+        if not is_symmetric(self.r):
+            raise ValueError("r must be symmetric")
 
         if len(self.x) < self.query_size * self.n_batches + self.batch_size:
             raise ValueError(
@@ -51,5 +64,6 @@ class QueryUniqueBatchDataset(IterableDataset):
             xb = self.x[b_idx]
             yb = self.y[b_idx]
 
-            r = torch.eye(len(xb) + len(xq))  # relationship matrix
+            s_idx = torch.cat((q_idx, b_idx))
+            r = self.r[s_idx][:, s_idx]  # relationship sub-matrix
             yield xb, yb, xq, yq, r

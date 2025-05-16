@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from tabrel.dataset import QueryUniqueBatchDataset
 from tabrel.model import TabularTransformerClassifierModel
 from tabrel.utils.config import ProjectConfig, TrainingConfig
+from tabrel.utils.linalg import mirror_triu
 
 
 def run_epoch(
@@ -158,18 +159,20 @@ def train(
 # Create synthetic data (for testing purposes)
 def generate_synthetic_data(
     num_samples: int, num_features: int, num_classes: int
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     x = torch.randn(num_samples, num_features)
     y = torch.randint(0, num_classes, (num_samples,))
-    return x, y
+    r = torch.randint(0, 2, (num_samples, num_samples))
+    return x, y, mirror_triu(r)
 
 
 def wrap_data(
-    x: torch.Tensor, y: torch.Tensor, config: TrainingConfig
+    x: torch.Tensor, y: torch.Tensor, r: torch.Tensor, config: TrainingConfig
 ) -> QueryUniqueBatchDataset:
     return QueryUniqueBatchDataset(
-        x,
-        y,
+        x=x,
+        y=y,
+        r=r,
         query_size=config.query_size,
         batch_size=config.batch_size,
         n_batches=config.n_batches,
