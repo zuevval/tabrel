@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 
@@ -26,5 +27,5 @@ def mirror_triu(r: torch.Tensor) -> torch.Tensor:
     return torch.triu(r) + torch.triu(r, 1).T
 
 
-def is_symmetric(r: torch.Tensor) -> bool:
+def is_symmetric(r: torch.Tensor | np.ndarray) -> bool:
     return (r == r.T).all().item()  # type:ignore

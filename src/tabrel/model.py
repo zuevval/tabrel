@@ -65,16 +65,16 @@ class RelTransformerEncoderLayer(nn.Module):
         self, s: SampleWithRelations, attn_mask: torch.Tensor
     ) -> torch.Tensor:
         x = self.self_attn(s.x, s.x, s.x, attn_mask=attn_mask, need_weights=False)[0]
-        return self.dropout1(x)
+        return self.dropout1(x)  # type:ignore
 
     # a copy of original PyTorch _ff_block
     def _ff_block(self, x: torch.Tensor) -> torch.Tensor:
         x = self.linear2(self.dropout(self.activation(self.linear1(x))))
-        return self.dropout2(x)
+        return self.dropout2(x)  # type:ignore
 
     # a modified PyTorch forward method
     def forward(self, src: SampleWithRelations, src_mask: torch.Tensor) -> torch.Tensor:
-        src_mask = nn.functional._canonical_mask(
+        src_mask = nn.functional._canonical_mask(  # type:ignore
             mask=src_mask,
             mask_name="src_mask",
             other_type=None,
@@ -84,7 +84,7 @@ class RelTransformerEncoderLayer(nn.Module):
         )
 
         x = self.norm1(src.x + self._sa_block(src, src_mask))
-        return self.norm2(x + self._ff_block(x))
+        return self.norm2(x + self._ff_block(x))  # type:ignore
 
 
 class RelTransformerEncoder(nn.Module):

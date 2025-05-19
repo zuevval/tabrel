@@ -105,7 +105,7 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
                 xb=self.fit_data_.x_train, yb=self.fit_data_.y_train, xq=x_query, r=r
             )
             _, predicted = torch.max(outputs, 1)
-            return predicted.numpy()
+            return predicted.numpy()  # type:ignore
 
 
 class DummyTabRelClassifier(ClassifierMixin, BaseEstimator):
