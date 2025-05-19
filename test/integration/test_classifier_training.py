@@ -49,10 +49,10 @@ def test_simple_training(request: pytest.FixtureRequest) -> None:
     num_features = 10
     num_classes = 2
 
-    x_train, y_train = generate_synthetic_data(
+    x_train, y_train, r_train = generate_synthetic_data(
         num_samples=800, num_features=num_features, num_classes=num_classes
     )
-    x_val, y_val = generate_synthetic_data(
+    x_val, y_val, r_val = generate_synthetic_data(
         num_samples=200, num_features=num_features, num_classes=num_classes
     )
 
@@ -61,8 +61,8 @@ def test_simple_training(request: pytest.FixtureRequest) -> None:
         out_dir=out_dir, num_features=num_features, num_classes=num_classes
     )
 
-    train_dataset = wrap_data(x_train, y_train, config.training)
-    val_dataset = wrap_data(x_val, y_val, config.training)
+    train_dataset = wrap_data(x_train, y=y_train, r=r_train, config=config.training)
+    val_dataset = wrap_data(x_val, y=y_val, r=r_val, config=config.training)
 
     init_logging(config.training)
     train(train_data=train_dataset, val_data=val_dataset, config=config)
