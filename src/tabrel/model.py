@@ -108,7 +108,7 @@ class RelationalMultiheadAttention(nn.Module):
 
         res = weights @ v  # (num_heads, n_samples, head_dim)
         res = res.transpose(0, 1).flatten(1)  # (n_samples, embed_dim)
-        return self.out_proj(res)
+        return self.out_proj(res)  # type:ignore
 
 
 class RelTransformerEncoderLayer(nn.Module):
