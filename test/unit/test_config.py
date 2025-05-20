@@ -21,6 +21,7 @@ def test_classifier_config_basic() -> None:
         num_layers=1,
         num_classes=2,
         activation="relu",
+        rel=True,
         dropout=0.0,
     )
     assert cfg.d_embedding == 25

@@ -34,6 +34,7 @@ def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectC
             num_layers=2,
             num_classes=num_classes,
             activation="relu",
+            rel=True,
             dropout=0.1,
         ),
         training=TrainingConfig(
