@@ -36,6 +36,81 @@ class SampleWithRelations:
             )
 
 
+class RelationalMultiheadAttention(nn.Module):
+    """
+    Based on a simplified torch.nn.MultiheadAttention
+    (with additional relationship matrix)
+    """
+
+    embed_dim: Final[int]
+    num_heads: Final[int]
+    rel: Final[bool]  # use relationships matrix R or not
+
+    @property
+    def head_dim(self) -> int:
+        return self.embed_dim // self.num_heads
+
+    @property
+    def scaling_factor(self) -> float:
+        return self.head_dim**-0.5  # type:ignore
+
+    def __init__(
+        self, embed_dim: int, num_heads: int, dropout: float, rel: bool
+    ) -> None:
+        super().__init__()
+
+        if embed_dim <= 0 or num_heads <= 0:
+            raise ValueError("`embed_dim` and `num_heads` must be >= 0")
+
+        if embed_dim % num_heads != 0:
+            raise ValueError("`embed_dim` must be divisible by `num_heads`")
+
+        self.embed_dim, self.num_heads, self.rel = embed_dim, num_heads, rel
+        self.dropout = nn.Dropout(dropout)
+
+        self.q_proj = nn.Linear(embed_dim, embed_dim)
+        self.k_proj = nn.Linear(embed_dim, embed_dim)
+        self.v_proj = nn.Linear(embed_dim, embed_dim)
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+
+    def forward(self, s: SampleWithRelations, attn_mask: torch.Tensor) -> torch.Tensor:
+        if attn_mask.shape != s.r.shape:
+            raise ValueError(
+                f"`attn_mask.shape` must be (n_samples, n_samples),"
+                f"got {attn_mask.shape}"
+            )
+        n_samples, d_model = s.x.shape
+        if d_model != self.embed_dim:
+            raise ValueError(
+                f"x.shape[1] != embed_dim: expected {self.embed_dim}, got {d_model}"
+            )
+
+        q, k, v = (
+            (  # each tensor: (num_heads, n_samples, head_dim)
+                proj(s.x)
+                .reshape(n_samples, self.num_heads, self.head_dim)
+                .transpose(0, 1)
+            )
+            for proj in (self.q_proj, self.k_proj, self.v_proj)
+        )
+
+        # attention scores: (num_heads, n_samples, n_samples)
+        attn_scores: torch.Tensor = (q @ k.transpose(-2, -1)) * self.scaling_factor
+
+        if self.rel:
+            attn_scores += s.r.unsqueeze(0)
+
+        attn_scores = attn_scores.masked_fill(attn_mask == 0, -torch.inf)
+
+        # attention weights: (num_heads, n_samples, n_samples)
+        weights = torch.softmax(attn_scores, dim=-1)
+        weights = self.dropout(weights)
+
+        res = weights @ v  # (num_heads, n_samples, head_dim)
+        res = res.transpose(0, 1).flatten(1)  # (n_samples, embed_dim)
+        return self.out_proj(res)
+
+
 class RelTransformerEncoderLayer(nn.Module):
     def __init__(
         self,
@@ -44,10 +119,11 @@ class RelTransformerEncoderLayer(nn.Module):
         dim_feedforward: int,
         dropout: float,
         activation: str,
+        rel: bool,
     ) -> None:
         super().__init__()
-        self.self_attn = nn.MultiheadAttention(
-            embed_dim=d_model, num_heads=nhead, dropout=dropout, batch_first=True
+        self.self_attn = RelationalMultiheadAttention(
+            embed_dim=d_model, num_heads=nhead, dropout=dropout, rel=rel
         )
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
@@ -64,7 +140,7 @@ class RelTransformerEncoderLayer(nn.Module):
     def _sa_block(
         self, s: SampleWithRelations, attn_mask: torch.Tensor
     ) -> torch.Tensor:
-        x = self.self_attn(s.x, s.x, s.x, attn_mask=attn_mask, need_weights=False)[0]
+        x = self.self_attn(s, attn_mask=attn_mask)
         return self.dropout1(x)  # type:ignore
 
     # a copy of original PyTorch _ff_block
@@ -126,6 +202,7 @@ class TabularTransformerClassifierModel(nn.Module):
             dim_feedforward=config.dim_feedforward,
             dropout=config.dropout,
             activation=config.activation,
+            rel=config.rel,
         )
         self.transformer_encoder = RelTransformerEncoder(
             encoder_layer, num_layers=config.num_layers

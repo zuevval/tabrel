@@ -13,6 +13,7 @@ class ClassifierConfig:
     num_layers: int  # Transformer layers
     num_classes: int  # number of classes (= output dimension)
     activation: str  # e.g. "relu"
+    rel: bool  # use relationship matrix or not (False for testing/comparison)
     dropout: float
 
     def __post_init__(self) -> None:
@@ -30,6 +31,7 @@ class ClassifierConfig:
             num_layers=3,
             num_classes=2,
             activation="relu",
+            rel=True,
             dropout=0.1,
         )
 

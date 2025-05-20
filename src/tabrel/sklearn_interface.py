@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, replace
 from typing import Final
 
 import numpy as np
@@ -118,9 +119,14 @@ class DummyTabRelClassifier(ClassifierMixin, BaseEstimator):
 
     def __init__(self, config: ProjectConfig) -> None:
         super().__init__()
+        # set rel=False regardless to passed settings (do not use relationships)
+        if config.model.rel:
+            logging.warning("config.model.rel=True will be ignored")
+        config = replace(config, model=replace(config.model, rel=False))
         self._classifier = TabRelClassifier(config)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+        # any `r` is OK - it is not used anyway
         self._classifier.fit(X, y=y, r=np.eye(len(X)))
         self.classes_ = np.unique(y)
 
