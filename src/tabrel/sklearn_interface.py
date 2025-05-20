@@ -77,8 +77,8 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
 
         Args:
             X (np.ndarray): The data to predict on
-            r_inter (np.ndarray): Relationships between elements of X
-            r_intra (np.ndarray): Relationships between X and X_train
+            r_intra (np.ndarray): Relationships between elements of X
+            r_inter (np.ndarray): Relationships between X and X_train
 
         Returns:
             np.ndarray: The predicted labels
@@ -89,16 +89,16 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
 
         n_query_samples: Final[int] = len(x_query)
         n_train_samples: Final[int] = len(self.fit_data_.x_train)
-        if r_inter.shape != (n_query_samples, n_query_samples):
-            raise ValueError("`r_inter` must be a square matrix len(X) x len(X)")
-        if r_intra.shape != (n_train_samples, n_query_samples):
-            raise ValueError("`r_intra` must be of shape (len(X_train), len(X))")
-        if not is_symmetric(r_inter):
-            raise ValueError("`r_inter` must be symmetric")
+        if r_intra.shape != (n_query_samples, n_query_samples):
+            raise ValueError("`r_intra` must be a square matrix len(X) x len(X)")
+        if r_inter.shape != (n_train_samples, n_query_samples):
+            raise ValueError("`r_inter` must be of shape (len(X_train), len(X))")
+        if not is_symmetric(r_intra):
+            raise ValueError("`r_intra` must be symmetric")
 
         r = torch.eye(n_train_samples + n_query_samples)
-        r[n_train_samples:, n_train_samples:] = torch.tensor(r_inter)
-        r[:n_train_samples, n_train_samples:] = torch.tensor(r_intra)
+        r[n_train_samples:, n_train_samples:] = torch.tensor(r_intra)
+        r[:n_train_samples, n_train_samples:] = torch.tensor(r_inter)
         r = mirror_triu(r)
 
         with torch.no_grad():
@@ -133,5 +133,5 @@ class DummyTabRelClassifier(ClassifierMixin, BaseEstimator):
     def predict(self, X: np.ndarray) -> np.ndarray:
         n_train, n_test = len(self._classifier.fit_data_.x_train), len(X)
         return self._classifier.predict(
-            X, r_inter=np.eye(n_test), r_intra=np.zeros((n_train, n_test))
+            X, r_intra=np.eye(n_test), r_inter=np.zeros((n_train, n_test))
         )
