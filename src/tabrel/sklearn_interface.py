@@ -108,6 +108,60 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
             _, predicted = torch.max(outputs, 1)
             return predicted.numpy()  # type:ignore
 
+    def evaluate(
+        self, X: np.ndarray, r_inter: np.ndarray, r_intra: np.ndarray, y: np.ndarray
+    ) -> dict[str, float]:
+        """
+        Predicts labels and calculates evaluation metrics for binary classification.
+
+        Args:
+            X (np.ndarray): The data to predict on
+            r_intra (np.ndarray): Relationships between elements of X
+            r_inter (np.ndarray): Relationships between X and X_train
+            y (np.ndarray): True labels for X
+
+        Returns:
+            dict[str, float]: Dictionary containing metricsß
+
+        Raises:
+            ValueError: If not performing binary classification
+        """
+        if len(self.classes_) != 2:
+            raise ValueError(
+                "Evaluation metrics only supported for binary classification"
+            )
+
+        # Get predictions
+        y_pred = self.predict(X, r_inter, r_intra)
+        y_true = y
+
+        # Calculate confusion matrix components
+        tp = np.sum((y_pred == self.classes_[1]) & (y_true == self.classes_[1]))
+        fp = np.sum((y_pred == self.classes_[1]) & (y_true == self.classes_[0]))
+        tn = np.sum((y_pred == self.classes_[0]) & (y_true == self.classes_[0]))
+        fn = np.sum((y_pred == self.classes_[0]) & (y_true == self.classes_[1]))
+
+        # Calculate metrics
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = (
+            2 * (precision * recall) / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+
+        return {
+            "tp": float(tp),
+            "fp": float(fp),
+            "tn": float(tn),
+            "fn": float(fn),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f1": float(f1),
+            "accuracy": float(accuracy),
+        }
+
 
 class DummyTabRelClassifier(ClassifierMixin, BaseEstimator):
     """
