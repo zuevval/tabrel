@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Final
 
+import numpy as np
 import torch
 import torch.nn as nn
 from rtdl_num_embeddings import PeriodicEmbeddings  # type:ignore
@@ -73,6 +74,9 @@ class RelationalMultiheadAttention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim)
         self.out_proj = nn.Linear(embed_dim, embed_dim)
 
+        self.r_scale = nn.Parameter(torch.ones(num_heads, 1, 1) / np.sqrt(embed_dim))
+        self.r_bias = nn.Parameter(torch.zeros(num_heads, 1, 1))
+
     def forward(self, s: SampleWithRelations, attn_mask: torch.Tensor) -> torch.Tensor:
         if attn_mask.shape != s.r.shape:
             raise ValueError(
@@ -98,7 +102,7 @@ class RelationalMultiheadAttention(nn.Module):
         attn_scores: torch.Tensor = (q @ k.transpose(-2, -1)) * self.scaling_factor
 
         if self.rel:
-            attn_scores += s.r.unsqueeze(0)
+            attn_scores += s.r.unsqueeze(0) * self.r_scale + self.r_bias
 
         attn_scores = attn_scores.masked_fill(attn_mask == 0, -torch.inf)
 
