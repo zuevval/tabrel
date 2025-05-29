@@ -3,6 +3,7 @@ from dataclasses import dataclass, replace
 from typing import Final
 
 import numpy as np
+import sklearn
 import torch
 from sklearn.base import BaseEstimator, ClassifierMixin, check_is_fitted  # type:ignore
 
@@ -97,6 +98,7 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
             raise ValueError("`r_intra` must be symmetric")
 
         r = torch.eye(n_train_samples + n_query_samples)
+        r[:n_train_samples, :n_train_samples] = self.fit_data_.r_train
         r[n_train_samples:, n_train_samples:] = torch.tensor(r_intra)
         r[:n_train_samples, n_train_samples:] = torch.tensor(r_inter)
         r = mirror_triu(r)
@@ -110,9 +112,9 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
 
     def evaluate(
         self, X: np.ndarray, r_inter: np.ndarray, r_intra: np.ndarray, y: np.ndarray
-    ) -> dict[str, float]:
+    ) -> dict[str, float | np.ndarray]:
         """
-        Predicts labels and calculates evaluation metrics for binary classification.
+        Predicts labels and calculates evaluation metrics
 
         Args:
             X (np.ndarray): The data to predict on
@@ -121,45 +123,16 @@ class TabRelClassifier(ClassifierMixin, BaseEstimator):
             y (np.ndarray): True labels for X
 
         Returns:
-            dict[str, float]: Dictionary containing metricsß
-
-        Raises:
-            ValueError: If not performing binary classification
+            dict[str, float | np.ndarray]: Dictionary containing metrics
         """
-        if len(self.classes_) != 2:
-            raise ValueError(
-                "Evaluation metrics only supported for binary classification"
-            )
-
-        # Get predictions
         y_pred = self.predict(X, r_inter, r_intra)
         y_true = y
 
-        # Calculate confusion matrix components
-        tp = np.sum((y_pred == self.classes_[1]) & (y_true == self.classes_[1]))
-        fp = np.sum((y_pred == self.classes_[1]) & (y_true == self.classes_[0]))
-        tn = np.sum((y_pred == self.classes_[0]) & (y_true == self.classes_[0]))
-        fn = np.sum((y_pred == self.classes_[0]) & (y_true == self.classes_[1]))
-
-        # Calculate metrics
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (
-            2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
-        accuracy = (tp + tn) / (tp + tn + fp + fn)
-
         return {
-            "tp": float(tp),
-            "fp": float(fp),
-            "tn": float(tn),
-            "fn": float(fn),
-            "precision": float(precision),
-            "recall": float(recall),
-            "f1": float(f1),
-            "accuracy": float(accuracy),
+            "precision": sklearn.metrics.precision_score(y_true, y_pred, average=None),
+            "recall": sklearn.metrics.recall_score(y_true, y_pred, average=None),
+            "f1": sklearn.metrics.f1_score(y_true, y_pred, average=None),
+            "accuracy": sklearn.metrics.accuracy_score(y_true, y_pred),
         }
 
 
