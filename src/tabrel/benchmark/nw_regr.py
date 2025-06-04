@@ -64,7 +64,7 @@ def generate_toy_regr_data(
     torch.manual_seed(seed)
     x = torch.rand((n_samples, 1)) * 2 - 1
     clusters = torch.randint(0, n_clusters, (n_samples,))
-    y = x.flatten() ** 2 + clusters.float()
+    y = x.flatten() ** 2 + clusters.float() * 0.5
 
     return x, y, clusters
 
@@ -101,9 +101,13 @@ class FittedNwRegr:
     x_test: torch.Tensor
     y_test_true: torch.Tensor
     clusters_test: torch.Tensor
+    use_rel: bool
 
     def evaluate(self) -> dict[str, float]:
-        r = compute_relation_matrix(self.clusters_train, self.clusters_test)
+        if self.use_rel:
+            r = compute_relation_matrix(self.clusters_train, self.clusters_test)
+        else:
+            r = torch.zeros((len(self.x_test), len(self.x_train)))
 
         with torch.no_grad():
             y_pred = self.model(self.x_train, self.y_train, self.x_test, r)
@@ -137,6 +141,7 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.lr)
     loss_fn = nn.MSELoss()
 
+    torch.manual_seed(train_cfg.seed)
     model.train()
     for epoch in range(train_cfg.n_epochs):
         optimizer.zero_grad()
@@ -161,4 +166,5 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
         x_test=x_test,
         y_test_true=y_test_true,
         clusters_test=clusters_test,
+        use_rel=train_cfg.use_rel,
     )
