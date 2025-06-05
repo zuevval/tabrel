@@ -12,6 +12,7 @@ dependencies:
   - torchvision
   - torchaudio
   - cudatoolkit
+  - geopandas
   - plotly
   - pytest
   - pytest-cov
@@ -19,6 +20,7 @@ dependencies:
   - black
   - flake8
   - jupyter
+  - ucimlrepo
   - pip
   - pip:
     - pre-commit
