@@ -20,7 +20,8 @@ dependencies:
   - black
   - flake8
   - jupyter
-  - ucimlrepo
+  - seaborn
+  - kagglehub
   - pip
   - pip:
     - pre-commit
