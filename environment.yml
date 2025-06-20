@@ -14,6 +14,7 @@ dependencies:
   - cudatoolkit
   - geopandas
   - plotly
+  - pycirclize
   - pytest
   - pytest-cov
   - mypy
@@ -27,3 +28,4 @@ dependencies:
     - pre-commit
     - rtdl-num-embeddings
     - torch_geometric
+    - kaleido
