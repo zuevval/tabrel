@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
+import lightgbm as lgb
 import numpy as np
 import torch
 import torch.nn as nn
@@ -99,14 +100,14 @@ class FittedNwRegr:
     model: RelNwRegr
     x_backgnd: torch.Tensor
     y_backgnd: torch.Tensor
-    clusters_backgnd: torch.Tensor
+    clusters_backgnd: torch.Tensor | None
     x_query: torch.Tensor
     y_query_true: torch.Tensor
-    clusters_query: torch.Tensor
-    use_rel: bool
+    clusters_query: torch.Tensor | None
+    use_rel: bool | None
 
     def evaluate(self) -> dict[str, float]:
-        if self.use_rel:
+        if self.use_rel and self.clusters_backgnd and self.clusters_query:
             r = compute_relation_matrix(self.clusters_backgnd, self.clusters_query)
         else:
             r = torch.zeros((len(self.x_query), len(self.x_backgnd)))
@@ -180,23 +181,19 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
     )
 
 
-def run_training(
-    x: np.ndarray,
-    y: np.ndarray,
-    r: np.ndarray,
-    backgnd_indices: np.ndarray,
-    query_indices: np.ndarray,
-    val_indices: np.ndarray,
+def train_nw_arbitrary(
+    x_backgnd: np.ndarray,
+    y_backgnd: np.ndarray,
+    x_query: np.ndarray,
+    y_query: np.ndarray,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+    r_query_backgnd: np.ndarray,
+    r_val_nonval: np.ndarray,
+    cfg: NwModelConfig,
     lr: float,
     n_epochs: int,
-) -> dict[str, tuple[float, float, float, FittedNwRegr]]:
-    x_backgnd = x[backgnd_indices]
-    y_backgnd = y[backgnd_indices]
-    x_query = x[query_indices]
-    y_query = y[query_indices]
-    x_val = x[val_indices]
-    y_val = y[val_indices]
-
+) -> tuple[float, float, float, FittedNwRegr]:
     x_mean = np.mean(x_backgnd, axis=0, keepdims=True)
     x_std = np.std(x_backgnd, axis=0, keepdims=True) + 1e-8
 
@@ -204,12 +201,8 @@ def run_training(
     x_query_norm = (x_query - x_mean) / x_std
     x_val_norm = (x_val - x_mean) / x_std
 
-    r_query_backgnd = r[np.ix_(query_indices, backgnd_indices)]
     x_nonval_norm = np.concatenate((x_backgnd_norm, x_query_norm))
     y_nonval = np.concatenate((y_backgnd, y_query))
-    r_val_nonval = r[
-        np.ix_(val_indices, np.concatenate((backgnd_indices, query_indices)))
-    ]
 
     # Convert to torch
     x_backgnd_norm = torch.tensor(x_backgnd_norm, dtype=torch.float32)
@@ -223,52 +216,129 @@ def run_training(
     y_nonval = torch.tensor(y_nonval, dtype=torch.float32)
     r_val_nonval = torch.tensor(r_val_nonval, dtype=torch.float32)
 
-    results_local = {}
+    model = RelNwRegr(cfg)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    loss_fn = torch.nn.MSELoss()
+
+    model.train()
+    for _ in range(n_epochs):
+        optimizer.zero_grad()
+        y_pred = model(
+            x_backgnd_norm,
+            y_backgnd,
+            x_query_norm,
+            r_query_backgnd,
+        )
+        loss = loss_fn(y_pred, y_query)
+        loss.backward()
+        optimizer.step()
+
+    model.eval()
+    with torch.no_grad():
+        y_pred_val = model(
+            x_nonval_norm,
+            y_nonval,
+            x_val_norm,
+            r_val_nonval,
+        )
+        y_pred_val_np = y_pred_val.numpy()
+        y_val_np = y_val.numpy()
+
+        mse = mean_squared_error(y_val_np, y_pred_val_np)
+        r2 = r2_score(y_val_np, y_pred_val_np)
+        mae = mean_absolute_error(y_val_np, y_pred_val_np)
+
+        fitted_model = FittedNwRegr(
+            model=model,
+            x_backgnd=x_backgnd_norm,
+            x_query=x_query_norm,
+            y_backgnd=y_backgnd,
+            y_query_true=y_query,
+            clusters_query=None,
+            clusters_backgnd=None,
+            use_rel=None,
+        )
+
+        return mse, r2, mae, fitted_model
+
+
+def run_training(
+    x: np.ndarray,
+    y: np.ndarray,
+    r: np.ndarray,
+    backgnd_indices: np.ndarray,
+    query_indices: np.ndarray,
+    val_indices: np.ndarray,
+    lr: float,
+    n_epochs: int,
+    rel_as_feats: np.ndarray | None = None,
+) -> dict[str, tuple[float, float, float, FittedNwRegr | None]]:
+    x_backgnd = x[backgnd_indices]
+    y_backgnd = y[backgnd_indices]
+    x_query = x[query_indices]
+    y_query = y[query_indices]
+    x_val = x[val_indices]
+    y_val = y[val_indices]
+
+    train_indices = np.concatenate((backgnd_indices, query_indices))
+
+    r_query_backgnd = r[np.ix_(query_indices, backgnd_indices)]
+    r_val_nonval = r[np.ix_(val_indices, train_indices)]
+
+    results: dict[str, tuple[float, float, float, FittedNwRegr | None]] = {}
     model_cfg = NwModelConfig()
 
     for use_rel in (True, False):
-        model = RelNwRegr(model_cfg)
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        loss_fn = torch.nn.MSELoss()
+        mse, r2, mae, fitted_model = train_nw_arbitrary(
+            x_backgnd=x_backgnd,
+            y_backgnd=y_backgnd,
+            x_query=x_query,
+            y_query=y_query,
+            x_val=x_val,
+            y_val=y_val,
+            r_query_backgnd=(
+                r_query_backgnd if use_rel else np.zeros_like(r_query_backgnd)
+            ),
+            r_val_nonval=r_val_nonval if use_rel else np.zeros_like(r_val_nonval),
+            cfg=model_cfg,
+            lr=lr,
+            n_epochs=n_epochs,
+        )
+        results[f"rel={use_rel}"] = (mse, r2, mae, fitted_model)
 
-        model.train()
-        for epoch in range(n_epochs):
-            optimizer.zero_grad()
-            y_pred = model(
-                x_backgnd_norm,
-                y_backgnd,
-                x_query_norm,
-                r_query_backgnd if use_rel else torch.zeros_like(r_query_backgnd),
-            )
-            loss = loss_fn(y_pred, y_query)
-            loss.backward()
-            optimizer.step()
+    if rel_as_feats is not None:
+        x_broad = np.concatenate((x, rel_as_feats), axis=1)
+        x_backgnd_broad = x_broad[backgnd_indices]
+        x_query_broad = x_broad[query_indices]
+        x_val_broad = x_broad[val_indices]
 
-        model.eval()
-        with torch.no_grad():
-            y_pred_val = model(
-                x_nonval_norm,
-                y_nonval,
-                x_val_norm,
-                r_val_nonval if use_rel else torch.zeros_like(r_val_nonval),
-            )
-            y_pred_val_np = y_pred_val.numpy()
-            y_val_np = y_val.numpy()
+        mse, r2, mae, fitted_model = train_nw_arbitrary(
+            x_backgnd=x_backgnd_broad,
+            y_backgnd=y_backgnd,
+            x_query=x_query_broad,
+            y_query=y_query,
+            x_val=x_val_broad,
+            y_val=y_val,
+            r_query_backgnd=np.zeros_like(r_query_backgnd),
+            r_val_nonval=np.zeros_like(r_val_nonval),
+            cfg=model_cfg,
+            lr=lr,
+            n_epochs=n_epochs,
+        )
+        results["rel-as-feats"] = (mse, r2, mae, fitted_model)
 
-            mse = mean_squared_error(y_val_np, y_pred_val_np)
-            r2 = r2_score(y_val_np, y_pred_val_np)
-            mae = mean_absolute_error(y_val_np, y_pred_val_np)
+        x_train_broad = x_broad[train_indices]
+        y_train = y[train_indices]
 
-            fitted_model = FittedNwRegr(
-                model=model,
-                x_backgnd=x_backgnd_norm,
-                x_query=x_query_norm,
-                y_backgnd=y_backgnd,
-                y_query_true=y_query,
-                clusters_query=None,
-                clusters_backgnd=None,
-                use_rel=use_rel,
-            )
-            results_local[f"rel={use_rel}"] = (mse, r2, mae, fitted_model)
+        train_data = lgb.Dataset(x_train_broad, label=y_train)
 
-    return results_local
+        params = {"objective": "regression", "metric": "rmse", "verbosity": -1}
+        model = lgb.train(params, train_data)
+
+        y_pred = model.predict(x_val_broad)
+        mse = mean_squared_error(y_val, y_pred)
+        r2 = r2_score(y_val, y_pred)
+        mae = mean_absolute_error(y_val, y_pred)
+        results["lgb"] = (mse, r2, mae, None)
+
+    return results

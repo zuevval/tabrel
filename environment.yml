@@ -6,6 +6,7 @@ channels:
 dependencies:
   - python=3.11
   - matplotlib
+  - lightgbm
   - numpy==1.26.4
   - scikit-learn
   - pytorch
