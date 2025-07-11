@@ -281,7 +281,6 @@ def run_training(
     y_val = y[val_indices]
 
     train_indices = np.concatenate((backgnd_indices, query_indices))
-
     r_query_backgnd = r[np.ix_(query_indices, backgnd_indices)]
     r_val_nonval = r[np.ix_(val_indices, train_indices)]
 
@@ -306,6 +305,25 @@ def run_training(
         )
         results[f"rel={use_rel}"] = (mse, r2, mae, fitted_model)
 
+    # LightGBM
+    x_train = x[train_indices]
+    y_train = y[train_indices]
+    lgb_params = {"objective": "regression", "metric": "rmse", "verbosity": -1}
+    train_data = lgb.Dataset(x_train, label=y_train)
+    model = lgb.train(lgb_params, train_data)
+    y_pred = model.predict(x_val)
+    results["lgb"] = (
+        mean_squared_error(y_val, y_pred),
+        r2_score(y_val, y_pred),
+        mean_absolute_error(y_val, y_pred),
+        None,
+    )
+
+    # # Transformer TODO transformer regressor
+    # trans_conf = replace(ProjectConfig.default(),
+    # model=replace(ClassifierConfig.default(), n_features=x.shape[1], rel=False))
+    # transformer =
+
     if rel_as_feats is not None:
         x_broad = np.concatenate((x, rel_as_feats), axis=1)
         x_backgnd_broad = x_broad[backgnd_indices]
@@ -328,17 +346,16 @@ def run_training(
         results["rel-as-feats"] = (mse, r2, mae, fitted_model)
 
         x_train_broad = x_broad[train_indices]
-        y_train = y[train_indices]
-
-        train_data = lgb.Dataset(x_train_broad, label=y_train)
-
-        params = {"objective": "regression", "metric": "rmse", "verbosity": -1}
-        model = lgb.train(params, train_data)
+        categorical_cols = list(range(x.shape[1], x.shape[1] + rel_as_feats.shape[1]))
+        train_data_broad = lgb.Dataset(
+            x_train_broad, label=y_train, categorical_feature=categorical_cols
+        )
+        model = lgb.train(lgb_params, train_data_broad)
 
         y_pred = model.predict(x_val_broad)
         mse = mean_squared_error(y_val, y_pred)
         r2 = r2_score(y_val, y_pred)
         mae = mean_absolute_error(y_val, y_pred)
-        results["lgb"] = (mse, r2, mae, None)
+        results["lgb-rel"] = (mse, r2, mae, None)
 
     return results
