@@ -106,6 +106,9 @@ class FittedNwRegr:
     clusters_query: torch.Tensor | None
     use_rel: bool | None
 
+    y_val_true: np.ndarray | None = None
+    y_val_pred: np.ndarray | None = None
+
     def evaluate(self) -> dict[str, float]:
         if self.use_rel and self.clusters_backgnd and self.clusters_query:
             r = compute_relation_matrix(self.clusters_backgnd, self.clusters_query)
@@ -257,6 +260,8 @@ def train_nw_arbitrary(
             clusters_query=None,
             clusters_backgnd=None,
             use_rel=None,
+            y_val_true=y_val_np,
+            y_val_pred=y_pred_val_np,
         )
 
         return mse, r2, mae, fitted_model
@@ -359,3 +364,12 @@ def run_training(
         results["lgb-rel"] = (mse, r2, mae, None)
 
     return results
+
+
+def metrics_mean(
+    metrics: dict[str, list[np.ndarray]], lbls: list[str]
+) -> dict[str, list[tuple[str, float]]]:
+    return {
+        k: list(zip(lbls, [round(arr.mean(), 3) for arr in v]))
+        for k, v in metrics.items()
+    }
