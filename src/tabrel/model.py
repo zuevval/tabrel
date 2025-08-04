@@ -104,7 +104,7 @@ class RelationalMultiheadAttention(nn.Module):
         if self.rel:
             attn_scores += s.r.unsqueeze(0) * self.r_scale + self.r_bias
 
-        attn_scores = attn_scores.masked_fill(attn_mask == 0, -torch.inf)
+        attn_scores = attn_scores.masked_fill(attn_mask != 0, -torch.inf)
 
         # attention weights: (num_heads, n_samples, n_samples)
         weights = torch.softmax(attn_scores, dim=-1)
