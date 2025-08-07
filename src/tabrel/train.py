@@ -174,7 +174,7 @@ def wrap_data(
         y=y,
         r=r,
         query_size=config.query_size,
-        batch_size=config.batch_size,
+        batch_size=config.backgnd_size,
         n_batches=config.n_batches,
         random_state=config.random_seed,
     )

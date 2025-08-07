@@ -10,7 +10,7 @@ def test_init_logging() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         out_dir = Path(temp_dir)
         config = TrainingConfig(
-            batch_size=0,
+            backgnd_size=0,
             query_size=0,
             n_batches=0,
             lr=0.0,

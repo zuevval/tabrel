@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from rtdl_num_embeddings import PeriodicEmbeddings  # type:ignore
+from torch_geometric.nn import GATv2Conv
 
 from tabrel.utils.config import ClassifierConfig
 
@@ -126,8 +127,11 @@ class RelTransformerEncoderLayer(nn.Module):
         rel: bool,
     ) -> None:
         super().__init__()
-        self.self_attn = RelationalMultiheadAttention(
-            embed_dim=d_model, num_heads=nhead, dropout=dropout, rel=rel
+        self.self_attn = GATv2Conv(
+            in_channels=d_model,
+            out_channels=d_model // nhead,
+            heads=nhead,
+            dropout=dropout,
         )
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
@@ -140,31 +144,17 @@ class RelTransformerEncoderLayer(nn.Module):
 
         self.activation = _get_activation_function(activation)
 
-    # a modified PyTorch _sa_block
-    def _sa_block(
-        self, s: SampleWithRelations, attn_mask: torch.Tensor
-    ) -> torch.Tensor:
-        x = self.self_attn(s, attn_mask=attn_mask)
+    def _sa_block(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        x = self.self_attn(x, edge_index)
         return self.dropout1(x)  # type:ignore
 
-    # a copy of original PyTorch _ff_block
     def _ff_block(self, x: torch.Tensor) -> torch.Tensor:
         x = self.linear2(self.dropout(self.activation(self.linear1(x))))
         return self.dropout2(x)  # type:ignore
 
-    # a modified PyTorch forward method
-    def forward(self, src: SampleWithRelations, src_mask: torch.Tensor) -> torch.Tensor:
-        src_mask = nn.functional._canonical_mask(  # type:ignore
-            mask=src_mask,
-            mask_name="src_mask",
-            other_type=None,
-            other_name="",
-            target_type=src.x.dtype,
-            check_other=False,
-        )
-
-        x = self.norm1(src.x + self._sa_block(src, src_mask))
-        return self.norm2(x + self._ff_block(x))  # type:ignore
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        x = self.norm1(x + self._sa_block(x, edge_index))
+        return self.norm2(x + self._ff_block(x))
 
 
 class RelTransformerEncoder(nn.Module):
@@ -176,11 +166,10 @@ class RelTransformerEncoder(nn.Module):
             [deepcopy(encoder_layer) for _ in range(num_layers)]
         )
 
-    def forward(self, src: SampleWithRelations, mask: torch.Tensor) -> torch.Tensor:
-        output = src.x
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        output = x
         for layer in self.layers:
-            input = SampleWithRelations(x=output, r=src.r)
-            output = layer(input, src_mask=mask)
+            output = layer(output, edge_index)
         return output
 
 
@@ -238,19 +227,17 @@ class TabularTransformerClassifierModel(nn.Module):
         x = self.flatten(x)  # (S, d_input - 1)
 
         # add y
-        sample_size, batch_size, query_size = len(x), len(xb), len(xq)
-        y_masked = torch.cat((yb, torch.zeros(query_size)), 0)
+        batch_size, query_size = len(xb), len(xq)
+        y_masked = torch.cat((yb, torch.zeros(query_size, device=yb.device)), 0)
         x = torch.cat((x, y_masked.unsqueeze(1)), 1)  # (S, d_input)
         x = self.projection_layer(x)  # (S, d_model)
 
-        mask = torch.cat(
-            (
-                torch.zeros(sample_size, batch_size),
-                torch.ones(sample_size, query_size) * -torch.inf,
-            ),
-            dim=1,
-        )  # queries are not attended
+        # Build edge_index from r (where r[i, j] == 1)
+        edge_index = torch.tensor(np.nonzero(r).T, dtype=torch.long, device=x.device)
 
-        sample = SampleWithRelations(x=x, r=r)
-        x = self.transformer_encoder(sample, mask=mask)  # (S, d_model)
-        return self.output_layer(x)[batch_size:]  # (query_size, num_classes) - logits
+        # Remove all connections between query samples (i, j >= batch_size)
+        mask = ~((edge_index[0] >= batch_size) & (edge_index[1] >= batch_size))
+        edge_index = edge_index[:, mask]
+
+        x = self.transformer_encoder(x, edge_index)  # (S, d_model)
+        return self.output_layer(x)[batch_size:]  # (query_size, num_classes)

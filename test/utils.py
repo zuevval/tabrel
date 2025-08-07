@@ -38,7 +38,7 @@ def light_config(out_dir: Path, num_features: int, num_classes: int) -> ProjectC
             dropout=0.1,
         ),
         training=TrainingConfig(
-            batch_size=32,
+            backgnd_size=32,
             query_size=16,
             n_batches=5,
             lr=1e-3,
