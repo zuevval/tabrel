@@ -13,7 +13,7 @@ class QueryUniqueBatchDataset(IterableDataset):
     y: torch.Tensor
     r: torch.Tensor  # n_samples x n_samples relationships matrix
     query_size: int
-    batch_size: int
+    backgnd_size: int
     n_batches: int
     random_state: int
 
@@ -33,10 +33,11 @@ class QueryUniqueBatchDataset(IterableDataset):
         if not is_symmetric(self.r):
             raise ValueError("r must be symmetric")
 
-        if len(self.x) < self.query_size * self.n_batches + self.batch_size:
+        if n_samples < self.backgnd_size + self.query_size * self.n_batches:
             raise ValueError(
-                f"Not enough data in x for batches: len(x)={len(self.x)}, "
-                f"should be >= {self.batch_size} + {self.query_size} * {self.n_batches}"
+                f"Not enough data in x for batches: len(x)={n_samples}, "
+                f"should be >= {self.backgnd_size} + "
+                f"{self.query_size} * {self.n_batches}"
             )
 
     def __iter__(
@@ -58,7 +59,7 @@ class QueryUniqueBatchDataset(IterableDataset):
 
             # Random support set (can repeat across batches)
             support_perm = torch.randperm(len(remaining_indices), generator=g)[
-                : self.batch_size
+                : self.backgnd_size
             ]
             b_idx = remaining_indices[support_perm]
             xb = self.x[b_idx]

@@ -254,3 +254,38 @@ class TabularTransformerClassifierModel(nn.Module):
         sample = SampleWithRelations(x=x, r=r)
         x = self.transformer_encoder(sample, mask=mask)  # (S, d_model)
         return self.output_layer(x)[batch_size:]  # (query_size, num_classes) - logits
+
+
+class RelMHARegressor(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        embed_dim: int,
+        num_heads: int,
+        num_layers: int = 2,
+        dropout: float = 0.2,
+        rel: bool = True,
+    ):
+        super().__init__()
+        self.input_proj = nn.Linear(in_dim, embed_dim)
+        self.attn_layers = nn.ModuleList(
+            [
+                RelationalMultiheadAttention(embed_dim, num_heads, dropout, rel)
+                for _ in range(num_layers)
+            ]
+        )
+        self.regressor = nn.Linear(embed_dim, 1)
+
+    def forward(
+        self, x: torch.Tensor, r: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        if attn_mask is None:
+            attn_mask = torch.zeros_like(r)
+
+        out = self.input_proj(x)
+        for attn_layer in self.attn_layers:
+            s = SampleWithRelations(out, r)
+            out = attn_layer(s, attn_mask)
+
+        out = self.regressor(out).squeeze(-1)  # shape: (n_samples,)
+        return out

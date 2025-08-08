@@ -2,13 +2,16 @@ import logging
 from pathlib import Path
 from typing import Any, Final
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from tabrel.dataset import QueryUniqueBatchDataset
-from tabrel.model import TabularTransformerClassifierModel
+from tabrel.model import RelMHARegressor, TabularTransformerClassifierModel
 from tabrel.utils.config import ProjectConfig, TrainingConfig
 from tabrel.utils.linalg import mirror_triu
 
@@ -174,7 +177,87 @@ def wrap_data(
         y=y,
         r=r,
         query_size=config.query_size,
-        batch_size=config.backgnd_size,
+        backgnd_size=config.backgnd_size,
         n_batches=config.n_batches,
         random_state=config.random_seed,
     )
+
+
+def train_relnet(
+    x: np.ndarray,
+    y: np.ndarray,
+    r: np.ndarray,
+    backgnd_indices: np.ndarray,
+    query_indices: np.ndarray,
+    val_indices: np.ndarray,
+    lr: float,
+    n_epochs: int,
+    n_layers: int = 2,
+    embed_dim: int = 32,
+    num_heads: int = 1,
+    dropout: float = 0.1,
+    progress_bar: bool = True,
+    print_loss: bool = False,
+) -> tuple[float, float, float]:
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Convert to tensors
+    x_tensor = torch.tensor(x, dtype=torch.float32, device=device)
+    y_tensor = torch.tensor(y, dtype=torch.float32, device=device)
+    r_tensor = torch.tensor(r, dtype=torch.float32, device=device)
+
+    # Masks
+    n = x.shape[0]
+    backgnd_mask = torch.zeros(n, dtype=torch.bool, device=device)
+    backgnd_mask[backgnd_indices] = True
+
+    probe_mask = torch.zeros(n, dtype=torch.bool, device=device)
+    probe_mask[query_indices] = True
+
+    val_mask = torch.zeros(n, dtype=torch.bool, device=device)
+    val_mask[val_indices] = True
+
+    # xy_train: features plus partially known targets for background nodes
+    xy_train = torch.cat(
+        [x_tensor, y_tensor.masked_fill(~backgnd_mask, 0).unsqueeze(1)], dim=1
+    )
+
+    # Model & optimizer
+    in_dim = xy_train.shape[1]
+
+    model = RelMHARegressor(
+        in_dim=in_dim,
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+        rel=True,
+        num_layers=n_layers,
+        dropout=dropout,
+    ).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.MSELoss()
+
+    range_epochs = range(n_epochs)
+    for epoch in tqdm(range_epochs) if progress_bar else range_epochs:
+        model.train()
+        optimizer.zero_grad()
+
+        preds = model(xy_train, r_tensor)
+        loss = loss_fn(preds[probe_mask], y_tensor[probe_mask])
+        loss.backward()
+        optimizer.step()
+
+        if print_loss and epoch % 20 == 0:
+            print(f"Epoch {epoch} - loss {loss.item():.4f}")
+
+    model.eval()
+    with torch.no_grad():
+        preds = model(xy_train, r_tensor)
+        y_val_true = y_tensor[val_mask].cpu().numpy()
+        y_val_pred = preds[val_mask].cpu().numpy()
+
+    mse = mean_squared_error(y_val_true, y_val_pred)
+    r2 = r2_score(y_val_true, y_val_pred)
+    mae = mean_absolute_error(y_val_true, y_val_pred)
+
+    return mse, r2, mae
