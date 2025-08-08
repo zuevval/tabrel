@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from rtdl_num_embeddings import PeriodicEmbeddings
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -194,6 +195,7 @@ def train_relnet(
     n_epochs: int,
     n_layers: int = 2,
     embed_dim: int = 32,
+    periodic_embed_dim: int = 5,
     num_heads: int = 1,
     dropout: float = 0.1,
     progress_bar: bool = True,
@@ -218,13 +220,13 @@ def train_relnet(
     val_mask = torch.zeros(n, dtype=torch.bool, device=device)
     val_mask[val_indices] = True
 
-    # xy_train: features plus partially known targets for background nodes
-    xy_train = torch.cat(
-        [x_tensor, y_tensor.masked_fill(~backgnd_mask, 0).unsqueeze(1)], dim=1
+    embeddings = PeriodicEmbeddings(
+        n_features=x_tensor.shape[1], d_embedding=periodic_embed_dim, lite=True
     )
+    flatten = nn.Flatten()
 
     # Model & optimizer
-    in_dim = xy_train.shape[1]
+    in_dim = periodic_embed_dim * x.shape[1] + 1
 
     model = RelMHARegressor(
         in_dim=in_dim,
@@ -241,6 +243,15 @@ def train_relnet(
     for epoch in tqdm(range_epochs) if progress_bar else range_epochs:
         model.train()
         optimizer.zero_grad()
+
+        # xy_train: features plus partially known targets for background nodes
+        xy_train = torch.cat(
+            [
+                flatten(embeddings(x_tensor)),
+                y_tensor.masked_fill(~backgnd_mask, 0).unsqueeze(1),
+            ],
+            dim=1,
+        )
 
         preds = model(xy_train, r_tensor)
         loss = loss_fn(preds[probe_mask], y_tensor[probe_mask])
