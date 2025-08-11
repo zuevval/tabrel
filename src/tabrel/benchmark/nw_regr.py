@@ -61,12 +61,25 @@ class RelNwRegr(nn.Module):
 
 
 def generate_toy_regr_data(
-    n_samples: int, n_clusters: int, seed: int
+    n_samples: int,
+    n_clusters: int,
+    seed: int,
+    distr: str = "uniform",
+    y_func: str = "square",
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     torch.manual_seed(seed)
-    x = torch.rand((n_samples, 1)) * 2 - 1
+    if distr == "uniform":
+        x = torch.rand((n_samples, 1)) * 2 - 1
+    elif distr == "norm":
+        x = torch.randn((n_samples, 1))
+    else:
+        raise ValueError(f"unknown distr type: {distr}")
     clusters = torch.randint(0, n_clusters, (n_samples,))
-    y = x.flatten() ** 2 + clusters.float() * 0.5
+    if y_func == "square":
+        y = x.flatten() ** 2
+    elif y_func == "sign":
+        y = torch.sign(x.flatten())
+    y += clusters.float() * 0.5
 
     return x, y, clusters
 
@@ -93,6 +106,8 @@ class NwTrainConfig:
     n_epochs: int = 40
     lr: float = 1e-2
     use_rel: bool = True
+    x_distr: str = "uniform"
+    y_func: str = "square"
 
 
 @dataclass(frozen=True)
@@ -110,7 +125,11 @@ class FittedNwRegr:
     y_val_pred: np.ndarray | None = None
 
     def evaluate(self) -> dict[str, float]:
-        if self.use_rel and self.clusters_backgnd and self.clusters_query:
+        if (
+            self.use_rel
+            and self.clusters_backgnd is not None
+            and self.clusters_query is not None
+        ):
             r = compute_relation_matrix(self.clusters_backgnd, self.clusters_query)
         else:
             r = torch.zeros((len(self.x_query), len(self.x_backgnd)))
@@ -133,6 +152,8 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
         n_samples=train_cfg.n_backgnd + train_cfg.n_query,
         n_clusters=train_cfg.n_clusters,
         seed=train_cfg.seed,
+        distr=train_cfg.x_distr,
+        y_func=train_cfg.y_func,
     )
 
     n_backgnd: Final[int] = train_cfg.n_backgnd
