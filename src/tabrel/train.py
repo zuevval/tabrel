@@ -200,7 +200,7 @@ def train_relnet(
     dropout: float = 0.1,
     progress_bar: bool = True,
     print_loss: bool = False,
-) -> tuple[float, float, float]:
+) -> tuple[float, float, float, torch.tensor, torch.tensor]:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -277,4 +277,4 @@ def train_relnet(
     r2 = r2_score(y_val_true, y_val_pred)
     mae = mean_absolute_error(y_val_true, y_val_pred)
 
-    return mse, r2, mae
+    return mse, r2, mae, y_val_pred, y_val_true
