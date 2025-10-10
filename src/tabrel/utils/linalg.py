@@ -29,3 +29,8 @@ def mirror_triu(r: torch.Tensor) -> torch.Tensor:
 
 def is_symmetric(r: torch.Tensor | np.ndarray) -> bool:
     return (r == r.T).all().item()  # type:ignore
+
+
+def batched_quadratic_form(x: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
+    # TODO jaxtyping for type checks
+    return torch.einsum("ijk,km,ijm->ij", x, w, x)
