@@ -38,7 +38,7 @@ class ClassifierConfig:
 
 @dataclass(frozen=True)
 class TrainingConfig:
-    batch_size: int
+    backgnd_size: int
     query_size: int  # batch consists of batch samples and query samples
     n_batches: int
     lr: float
@@ -58,7 +58,7 @@ class TrainingConfig:
     def default() -> "TrainingConfig":
         out_dir = Path("output")
         return TrainingConfig(
-            batch_size=32,
+            backgnd_size=32,
             query_size=32,
             n_batches=10,
             lr=1e-4,

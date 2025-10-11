@@ -39,7 +39,7 @@ def test_classifier_config_exception() -> None:
 
 def test_training_config() -> None:
     cfg = TrainingConfig.default()
-    assert cfg.batch_size == 32
+    assert cfg.backgnd_size == 32
     assert np.isclose(cfg.lr, 1e-4)
     assert cfg.checkpoints_dir.exists()
 
@@ -47,4 +47,4 @@ def test_training_config() -> None:
 def test_project_config() -> None:
     project_cfg = ProjectConfig.default()
     assert project_cfg.model.d_embedding == 24
-    assert project_cfg.training.batch_size == 32
+    assert project_cfg.training.backgnd_size == 32

@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from itertools import product
 from typing import Final
 
 import lightgbm as lgb
@@ -8,11 +9,15 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+from tabrel.utils.linalg import batched_quadratic_form
+
 
 @dataclass(frozen=True)
 class NwModelConfig:
+    input_dim: int
     init_sigma: float = 0.1
     init_r_scale: float = 3.0
+    trainable_weights_matrix: bool = False
 
 
 class RelNwRegr(nn.Module):
@@ -20,10 +25,16 @@ class RelNwRegr(nn.Module):
     Relationship-aware Nadaraya-Watson kernel regression
     """
 
+    w: torch.Tensor | None
+
     def __init__(self, cfg: NwModelConfig) -> None:
         super().__init__()
         self.sigma = nn.Parameter(torch.tensor([float(cfg.init_sigma)]))
         self.r_scale = nn.Parameter(torch.tensor([float(cfg.init_r_scale)]))
+        if cfg.trainable_weights_matrix:
+            self.w = nn.Parameter(torch.ones((cfg.input_dim,)))
+        else:
+            self.w = None
 
     def forward(
         self,
@@ -44,8 +55,12 @@ class RelNwRegr(nn.Module):
             n_query, -1, -1
         )  # (n_query, n_backgnd, n_features)
 
-        # Compute L2 distances: (n_query, n_backgnd)
-        dists = torch.norm(x_query_exp - x_backgnd_exp, dim=2)
+        if self.w is not None:
+            w_mtx = torch.eye(len(self.w)) * self.w**2
+            dists = batched_quadratic_form(x_query_exp - x_backgnd_exp, w_mtx)
+        else:
+            # Compute L2 distances: (n_query, n_backgnd)
+            dists = torch.norm(x_query_exp - x_backgnd_exp, dim=2)
 
         # Compute kernel weights: (n_query, n_backgnd)
         k_vals = torch.exp(-dists / self.sigma + self.r_scale * r)
@@ -61,12 +76,25 @@ class RelNwRegr(nn.Module):
 
 
 def generate_toy_regr_data(
-    n_samples: int, n_clusters: int, seed: int
+    n_samples: int,
+    n_clusters: int,
+    seed: int,
+    distr: str = "uniform",
+    y_func: str = "square",
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     torch.manual_seed(seed)
-    x = torch.rand((n_samples, 1)) * 2 - 1
+    if distr == "uniform":
+        x = torch.rand((n_samples, 1)) * 2 - 1
+    elif distr == "norm":
+        x = torch.randn((n_samples, 1))
+    else:
+        raise ValueError(f"unknown distr type: {distr}")
     clusters = torch.randint(0, n_clusters, (n_samples,))
-    y = x.flatten() ** 2 + clusters.float() * 0.5
+    if y_func == "square":
+        y = x.flatten() ** 2
+    elif y_func == "sign":
+        y = torch.sign(x.flatten())
+    y += clusters.float() * 0.5
 
     return x, y, clusters
 
@@ -93,6 +121,8 @@ class NwTrainConfig:
     n_epochs: int = 40
     lr: float = 1e-2
     use_rel: bool = True
+    x_distr: str = "uniform"
+    y_func: str = "square"
 
 
 @dataclass(frozen=True)
@@ -110,7 +140,11 @@ class FittedNwRegr:
     y_val_pred: np.ndarray | None = None
 
     def evaluate(self) -> dict[str, float]:
-        if self.use_rel and self.clusters_backgnd and self.clusters_query:
+        if (
+            self.use_rel
+            and self.clusters_backgnd is not None
+            and self.clusters_query is not None
+        ):
             r = compute_relation_matrix(self.clusters_backgnd, self.clusters_query)
         else:
             r = torch.zeros((len(self.x_query), len(self.x_backgnd)))
@@ -133,6 +167,8 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
         n_samples=train_cfg.n_backgnd + train_cfg.n_query,
         n_clusters=train_cfg.n_clusters,
         seed=train_cfg.seed,
+        distr=train_cfg.x_distr,
+        y_func=train_cfg.y_func,
     )
 
     n_backgnd: Final[int] = train_cfg.n_backgnd
@@ -290,9 +326,8 @@ def run_training(
     r_val_nonval = r[np.ix_(val_indices, train_indices)]
 
     results: dict[str, tuple[float, float, float, FittedNwRegr | None]] = {}
-    model_cfg = NwModelConfig()
 
-    for use_rel in (True, False):
+    for use_rel, trainable_w in product((True, False), (True, False)):
         mse, r2, mae, fitted_model = train_nw_arbitrary(
             x_backgnd=x_backgnd,
             y_backgnd=y_backgnd,
@@ -304,11 +339,18 @@ def run_training(
                 r_query_backgnd if use_rel else np.zeros_like(r_query_backgnd)
             ),
             r_val_nonval=r_val_nonval if use_rel else np.zeros_like(r_val_nonval),
-            cfg=model_cfg,
+            cfg=NwModelConfig(
+                input_dim=x.shape[1], trainable_weights_matrix=trainable_w
+            ),
             lr=lr,
             n_epochs=n_epochs,
         )
-        results[f"rel={use_rel}"] = (mse, r2, mae, fitted_model)
+        results[f"rel={use_rel};trainable_w={trainable_w}"] = (
+            mse,
+            r2,
+            mae,
+            fitted_model,
+        )
 
     # LightGBM
     x_train = x[train_indices]
@@ -344,7 +386,7 @@ def run_training(
             y_val=y_val,
             r_query_backgnd=np.zeros_like(r_query_backgnd),
             r_val_nonval=np.zeros_like(r_val_nonval),
-            cfg=model_cfg,
+            cfg=NwModelConfig(input_dim=x_broad.shape[1]),
             lr=lr,
             n_epochs=n_epochs,
         )
