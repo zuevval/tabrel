@@ -9,8 +9,6 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from tabrel.utils.linalg import batched_quadratic_form
-
 
 @dataclass(frozen=True)
 class NwModelConfig:
@@ -56,8 +54,11 @@ class RelNwRegr(nn.Module):
         )  # (n_query, n_backgnd, n_features)
 
         if self.w is not None:
-            w_mtx = torch.eye(len(self.w)) * self.w**2
-            dists = batched_quadratic_form(x_query_exp - x_backgnd_exp, w_mtx)
+            x_dif = x_query_exp - x_backgnd_exp
+            dists = torch.norm(x_dif * self.w, dim=2)
+
+            # w_mtx = torch.eye(len(self.w)) * self.w**2
+            # dists = torch.sqrt(batched_quadratic_form(x_dif, w_mtx))
         else:
             # Compute L2 distances: (n_query, n_backgnd)
             dists = torch.norm(x_query_exp - x_backgnd_exp, dim=2)
@@ -188,7 +189,7 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
         r = torch.zeros((train_cfg.n_query, train_cfg.n_backgnd))
 
     model = RelNwRegr(cfg=model_cfg)
-    optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=train_cfg.lr)
     loss_fn = nn.MSELoss()
 
     torch.manual_seed(train_cfg.seed)
@@ -268,6 +269,7 @@ def train_nw_arbitrary(
             x_query_norm,
             r_query_backgnd,
         )
+        print("y_pred", y_pred)  # TODO why so? error!
         loss = loss_fn(y_pred, y_query)
         loss.backward()
         optimizer.step()
