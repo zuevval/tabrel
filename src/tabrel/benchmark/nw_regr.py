@@ -100,6 +100,16 @@ def generate_toy_regr_data(
     return x, y, clusters
 
 
+def make_r(clusters: np.ndarray) -> np.ndarray:
+    n = len(clusters)
+    r = np.zeros((n, n))
+
+    for i, j in product(range(n), range(n)):
+        if clusters[i] == clusters[j] and np.random.choice((True, False)):
+            r[i, j] = 1
+    return r
+
+
 def compute_relation_matrix(
     backgnd_clusters: torch.Tensor,
     query_clusters: torch.Tensor,  # (n_backgnd,)  # (n_query,)
