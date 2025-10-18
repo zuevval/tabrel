@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from tabrel.utils.linalg import is_symmetric, mirror_triu
+from tabrel.utils.linalg import batched_quadratic_form, is_symmetric, mirror_triu
 
 
 def test_mirror_triu() -> None:
@@ -34,3 +34,14 @@ def test_is_symmetric() -> None:
     # Edge case - single-element tensor (always symmetric)
     r = torch.tensor([[5]])
     assert is_symmetric(r)
+
+
+def test_batched_quadratic_norm() -> None:
+    x = torch.randn(2, 3, 4)
+    w = torch.randn(4, 4)
+    assert batched_quadratic_form(x, w).shape == (2, 3)
+
+    x, w = torch.Tensor([[[1, 1], [1, 1]]]), torch.Tensor([[1, 1], [1, 1]])
+    result = batched_quadratic_form(x, w)
+    assert result.shape == (1, 2)
+    assert result[0][0] == result[0][1] == 4
