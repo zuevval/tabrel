@@ -279,7 +279,7 @@ def train_nw_arbitrary(
             x_query_norm,
             r_query_backgnd,
         )
-        print("y_pred", y_pred)  # TODO why so? error!
+        # TODO why errors here in run_training?
         loss = loss_fn(y_pred, y_query)
         loss.backward()
         optimizer.step()
