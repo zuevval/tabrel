@@ -5,6 +5,7 @@ channels:
   - defaults
 dependencies:
   - python=3.11
+  - hdbscan
   - matplotlib
   - lightgbm
   - numpy==1.26.4
@@ -24,6 +25,7 @@ dependencies:
   - jupyter
   - seaborn
   - kagglehub
+  - umap-learn
   - pip
   - pip:
     - pre-commit
