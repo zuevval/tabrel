@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Optional
 
 import numpy as np
 import torch
@@ -200,7 +200,9 @@ def train_relnet(
     dropout: float = 0.1,
     progress_bar: bool = True,
     print_loss: bool = False,
-) -> tuple[float, float, float, torch.tensor, torch.tensor]:
+    lr_decay: float | None = None,
+    lr_decay_step: int = 100,
+) -> tuple[float, float, float, torch.Tensor, torch.Tensor]:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -241,6 +243,10 @@ def train_relnet(
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.MSELoss()
 
+    scheduler = None
+    if lr_decay is not None:
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_decay_step, gamma=lr_decay)
+
     range_epochs = range(n_epochs)
     for epoch in tqdm(range_epochs) if progress_bar else range_epochs:
         model.train()
@@ -264,8 +270,13 @@ def train_relnet(
         loss.backward()
         optimizer.step()
 
+        if scheduler is not None:
+            scheduler.step()
+
         if print_loss and epoch % 20 == 0:
             print(f"Epoch {epoch} - loss {loss.item():.4f}")
+            print([layer.r_scale for layer in model.attn_layers])
+
 
     model.eval()
     with torch.no_grad():
@@ -277,4 +288,6 @@ def train_relnet(
     r2 = r2_score(y_val_true, y_val_pred)
     mae = mean_absolute_error(y_val_true, y_val_pred)
 
+    
     return mse, r2, mae, y_val_pred, y_val_true
+    

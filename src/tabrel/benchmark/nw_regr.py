@@ -95,6 +95,10 @@ def generate_toy_regr_data(
         y = x.flatten() ** 2
     elif y_func == "sign":
         y = torch.sign(x.flatten())
+    elif y_func == "const":
+        y = torch.zeros(len(x))
+    else:
+        raise ValueError(f"unknown `y_func`: {y_func}")
     y += clusters.float() * 0.5
 
     return x, y, clusters
@@ -109,6 +113,16 @@ def make_r(clusters: np.ndarray) -> np.ndarray:
             r[i, j] = 1
     return r
 
+def make_random_r(seed: int, clusters: np.ndarray) -> np.ndarray:
+    np.random.seed(seed)
+    n_samples = len(clusters)
+    r = np.eye(n_samples)
+    for i in range(n_samples):
+        for j in range(i):
+            if clusters[i] == clusters[j] and np.random.choice((True, False)):
+                r[i, j] = 1
+                r[j, i] = 1
+    return r
 
 def compute_relation_matrix(
     backgnd_clusters: torch.Tensor,
