@@ -9,8 +9,11 @@ dependencies:
   - matplotlib
   - lightgbm
   - numpy==1.26.4
+  - optuna
+  - optuna-dashboard
   - scikit-learn
   - pytorch
+  - tensorboard
   - torchvision
   - torchaudio
   - cudatoolkit

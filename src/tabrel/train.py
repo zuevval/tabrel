@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.tensorboard.writer import SummaryWriter
 from rtdl_num_embeddings import PeriodicEmbeddings
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch.utils.data import DataLoader
@@ -202,11 +203,13 @@ def train_relnet(
     print_loss: bool = False,
     lr_decay: float | None = None,
     lr_decay_step: int = 100,
+    tb_logdir: str | None = "tensorboard_logs",
 ) -> tuple[float, float, float, torch.Tensor, torch.Tensor]:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Convert to tensors
+    torch.random.seed
     x_tensor = torch.tensor(x, dtype=torch.float32, device=device)
     y_tensor = torch.tensor(y, dtype=torch.float32, device=device)
     r_tensor = torch.tensor(r, dtype=torch.float32, device=device)
@@ -247,6 +250,10 @@ def train_relnet(
     if lr_decay is not None:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_decay_step, gamma=lr_decay)
 
+    writer: SummaryWriter | None = None
+    if tb_logdir:
+        writer = SummaryWriter(log_dir=tb_logdir)
+
     range_epochs = range(n_epochs)
     for epoch in tqdm(range_epochs) if progress_bar else range_epochs:
         model.train()
@@ -270,6 +277,11 @@ def train_relnet(
         loss.backward()
         optimizer.step()
 
+        if writer:
+            writer.add_scalar("train/loss", loss.item(), epoch)
+            if scheduler:
+                writer.add_scalar("train/lr", scheduler.get_last_lr()[0], epoch)
+
         if scheduler is not None:
             scheduler.step()
 
@@ -277,7 +289,9 @@ def train_relnet(
             print(f"Epoch {epoch} - loss {loss.item():.4f}")
             print([layer.r_scale for layer in model.attn_layers])
 
-
+    if writer:
+        writer.close()
+    
     model.eval()
     with torch.no_grad():
         preds = model(xy_train, r_tensor)
