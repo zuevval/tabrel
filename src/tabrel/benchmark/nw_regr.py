@@ -103,6 +103,13 @@ def generate_toy_regr_data(
 
     return x, y, clusters
 
+def generate_multidim_noisy_data(n_samples: int, n_clusters: int, x_dim: int, seed: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    np.random.seed(seed)
+    x = np.random.uniform(-1, 1, (n_samples, x_dim))
+    clusters = np.random.randint(0, n_clusters, (n_samples,))
+    y = np.sin(x[:, 0]) + np.cos(x[:, 1]) + x[:, 2] + clusters
+    return x, y, clusters
+
 
 def make_r(clusters: np.ndarray) -> np.ndarray:
     n = len(clusters)
