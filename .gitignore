@@ -1,3 +1,6 @@
+# Tensorboard logs
+*.tfevents.*
+
 # output artifacts
 output
 
