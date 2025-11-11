@@ -9,13 +9,42 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+@dataclass(frozen=True)
+class MlpConfig:
+    in_dim: int
+    hidden_dim: int
+    out_dim: int
+    dropout: float
+
+class Mlp(nn.Module):
+    def __init__(self, 
+                 config: MlpConfig,
+                 ) -> None:
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(config.in_dim, config.hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(config.dropout),
+            nn.Linear(config.hidden_dim, config.hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(config.dropout),
+            nn.Linear(config.hidden_dim, config.out_dim),
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+def to_torch(arr: np.ndarray) -> torch.Tensor:
+    return torch.tensor(arr, dtype=torch.float32)
+
 
 @dataclass(frozen=True)
 class NwModelConfig:
-    input_dim: int
+    input_dim: int  # !when `mlp_config` is not None, this is the MLP out dim
     init_sigma: float = 0.1
     init_r_scale: float = 3.0
     trainable_weights_matrix: bool = False
+    mlp_config: MlpConfig | None = None
 
 
 class RelNwRegr(nn.Module):
@@ -24,6 +53,7 @@ class RelNwRegr(nn.Module):
     """
 
     w: torch.Tensor | None
+    x_transform: Mlp | None
 
     def __init__(self, cfg: NwModelConfig) -> None:
         super().__init__()
@@ -33,6 +63,11 @@ class RelNwRegr(nn.Module):
             self.w = nn.Parameter(torch.ones((cfg.input_dim,)))
         else:
             self.w = None
+        
+        if cfg.mlp_config:
+            self.x_transform = Mlp(cfg.mlp_config)
+        else:
+            self.x_transform = None
 
     def forward(
         self,
@@ -44,6 +79,9 @@ class RelNwRegr(nn.Module):
         """
         Returns predicted y: (n_query,)
         """
+        if self.x_transform is not None:
+            x_backgnd, x_query = self.x_transform(x_backgnd), self.x_transform(x_query)
+
         n_query, n_backgnd = r.shape
         # Expand x_backgnd and x_query to (n_query, n_backgnd, n_features)
         x_query_exp = x_query.unsqueeze(1).expand(
