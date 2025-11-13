@@ -5,9 +5,12 @@ from typing import Final
 
 import lightgbm as lgb
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+from tabrel.utils.misc import to_tensor
 
 @dataclass(frozen=True)
 class MlpConfig:
@@ -33,9 +36,6 @@ class Mlp(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
-
-def to_torch(arr: np.ndarray) -> torch.Tensor:
-    return torch.tensor(arr, dtype=torch.float32)
 
 
 @dataclass(frozen=True)
@@ -292,7 +292,7 @@ def train_nw(model_cfg: NwModelConfig, train_cfg: NwTrainConfig) -> FittedNwRegr
 
 def train_nw_arbitrary(
     x_backgnd: np.ndarray,
-    y_backgnd: np.ndarray,
+    y_backgnd: npt.NDArray[np.float32],
     x_query: np.ndarray,
     y_query: np.ndarray,
     x_val: np.ndarray,
@@ -314,16 +314,15 @@ def train_nw_arbitrary(
     y_nonval = np.concatenate((y_backgnd, y_query))
 
     # Convert to torch
-    x_backgnd_norm = torch.tensor(x_backgnd_norm, dtype=torch.float32)
-    y_backgnd = torch.tensor(y_backgnd, dtype=torch.float32)
-    x_query_norm = torch.tensor(x_query_norm, dtype=torch.float32)
-    y_query = torch.tensor(y_query, dtype=torch.float32)
-    r_query_backgnd = torch.tensor(r_query_backgnd, dtype=torch.float32)
-    x_val_norm = torch.tensor(x_val_norm, dtype=torch.float32)
-    x_nonval_norm = torch.tensor(x_nonval_norm, dtype=torch.float32)
-    y_val = torch.tensor(y_val, dtype=torch.float32)
-    y_nonval = torch.tensor(y_nonval, dtype=torch.float32)
-    r_val_nonval = torch.tensor(r_val_nonval, dtype=torch.float32)
+    x_backgnd_norm = to_tensor(x_backgnd_norm)
+    y_backgnd_torch = to_tensor(y_backgnd)
+    x_query_norm = to_tensor(x_query_norm)
+    y_query_torch = to_tensor(y_query)
+    r_query_backgnd_torch = to_tensor(r_query_backgnd)
+    x_val_norm = to_tensor(x_val_norm)
+    x_nonval_norm = to_tensor(x_nonval_norm)
+    y_nonval = to_tensor(y_nonval)
+    r_val_nonval_torch = to_tensor(r_val_nonval)
 
     model = RelNwRegr(cfg)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -334,12 +333,12 @@ def train_nw_arbitrary(
         optimizer.zero_grad()
         y_pred = model(
             x_backgnd_norm,
-            y_backgnd,
+            y_backgnd_torch,
             x_query_norm,
-            r_query_backgnd,
+            r_query_backgnd_torch,
         )
         # TODO why errors here in run_training?
-        loss = loss_fn(y_pred, y_query)
+        loss = loss_fn(y_pred, y_query_torch)
         loss.backward()
         optimizer.step()
 
@@ -349,25 +348,24 @@ def train_nw_arbitrary(
             x_nonval_norm,
             y_nonval,
             x_val_norm,
-            r_val_nonval,
+            r_val_nonval_torch,
         )
         y_pred_val_np = y_pred_val.numpy()
-        y_val_np = y_val.numpy()
 
-        mse = mean_squared_error(y_val_np, y_pred_val_np)
-        r2 = r2_score(y_val_np, y_pred_val_np)
-        mae = mean_absolute_error(y_val_np, y_pred_val_np)
+        mse = mean_squared_error(y_val, y_pred_val_np)
+        r2 = r2_score(y_val, y_pred_val_np)
+        mae = mean_absolute_error(y_val, y_pred_val_np)
 
         fitted_model = FittedNwRegr(
             model=model,
             x_backgnd=x_backgnd_norm,
             x_query=x_query_norm,
-            y_backgnd=y_backgnd,
-            y_query_true=y_query,
+            y_backgnd=y_backgnd_torch,
+            y_query_true=y_query_torch,
             clusters_query=None,
             clusters_backgnd=None,
             use_rel=None,
-            y_val_true=y_val_np,
+            y_val_true=y_val,
             y_val_pred=y_pred_val_np,
         )
 
@@ -384,6 +382,7 @@ def run_training(
     lr: float,
     n_epochs: int,
     rel_as_feats: np.ndarray | None = None,
+    mlp_config: MlpConfig | None = None,
 ) -> dict[str, tuple[float, float, float, FittedNwRegr | None]]:
     x_backgnd = x[backgnd_indices]
     y_backgnd = y[backgnd_indices]
@@ -398,7 +397,15 @@ def run_training(
 
     results: dict[str, tuple[float, float, float, FittedNwRegr | None]] = {}
 
-    for use_rel, trainable_w in product((True, False), (True, False)):
+    for use_rel, trainable_w, add_mlp in (
+        (True, True, False),
+        (True, False, False),
+        (False, True, False),
+        (False, False, False),
+        (False, False, True),
+    ):
+        if  add_mlp and mlp_config is None:
+            continue
         mse, r2, mae, fitted_model = train_nw_arbitrary(
             x_backgnd=x_backgnd,
             y_backgnd=y_backgnd,
@@ -411,12 +418,14 @@ def run_training(
             ),
             r_val_nonval=r_val_nonval if use_rel else np.zeros_like(r_val_nonval),
             cfg=NwModelConfig(
-                input_dim=x.shape[1], trainable_weights_matrix=trainable_w
+                input_dim=x.shape[1] if add_mlp or mlp_config is None else mlp_config.out_dim,
+                trainable_weights_matrix=trainable_w,
+                mlp_config=mlp_config,
             ),
             lr=lr,
             n_epochs=n_epochs,
         )
-        results[f"rel={use_rel};trainable_w={trainable_w}"] = (
+        results[f"rel={use_rel};trainable_w={trainable_w};mlp={add_mlp}"] = (
             mse,
             r2,
             mae,
@@ -429,18 +438,13 @@ def run_training(
     lgb_params = {"objective": "regression", "metric": "rmse", "verbosity": -1}
     train_data = lgb.Dataset(x_train, label=y_train)
     model = lgb.train(lgb_params, train_data)
-    y_pred = model.predict(x_val)
+    y_pred = np.array(model.predict(x_val))
     results["lgb"] = (
         mean_squared_error(y_val, y_pred),
         r2_score(y_val, y_pred),
         mean_absolute_error(y_val, y_pred),
         None,
     )
-
-    # # Transformer TODO transformer regressor
-    # trans_conf = replace(ProjectConfig.default(),
-    # model=replace(ClassifierConfig.default(), n_features=x.shape[1], rel=False))
-    # transformer =
 
     if rel_as_feats is not None:
         x_broad = np.concatenate((x, rel_as_feats), axis=1)
@@ -470,7 +474,7 @@ def run_training(
         )
         model = lgb.train(lgb_params, train_data_broad)
 
-        y_pred = model.predict(x_val_broad)
+        y_pred = np.array(model.predict(x_val_broad))
         mse = mean_squared_error(y_val, y_pred)
         r2 = r2_score(y_val, y_pred)
         mae = mean_absolute_error(y_val, y_pred)
