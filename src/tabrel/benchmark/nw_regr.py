@@ -8,7 +8,9 @@ import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard.writer import SummaryWriter
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from tqdm import tqdm
 
 from tabrel.utils.misc import to_tensor
 
@@ -491,3 +493,87 @@ def metrics_mean(
         k: list(zip(lbls, [round(arr.mean(), 3) for arr in v]))
         for k, v in metrics.items()
     }
+
+
+def train_nw_mlp(
+        x: np.ndarray,
+        y: np.ndarray,
+        r: np.ndarray,
+        back_ids: np.ndarray,
+        query_ids: np.ndarray,
+        val_ids: np.ndarray,
+        mlp_hid_dim: int,
+        mlp_out_dim: int,
+        dropout: float,
+        weight_decay: float,
+        _n_epochs: int,
+        writer: SummaryWriter | None,
+        trainable_weights: bool,
+        seed: int,
+) -> tuple[float, float]:
+    train_ids = np.concatenate([back_ids, query_ids])
+    x_torch, y_torch = to_tensor(x), to_tensor(y)
+    x_train, y_train = x_torch[train_ids], y_torch[train_ids]
+    x_mean, x_std = x_train.mean(dim=0), x_train.std(dim=0)
+    x_norm = (x_torch - x_mean) / (x_std + 1e-8)
+
+    x_b, y_b = x_norm[back_ids], y_torch[back_ids]
+    x_q, y_q = x_norm[query_ids], y_torch[query_ids]
+    x_v, y_v = x_norm[val_ids], y_torch[val_ids]
+
+    r_q_b = to_tensor(r)[query_ids][:, back_ids]
+    r_val_nval = to_tensor(r)[val_ids][:, train_ids]
+
+    torch.random.manual_seed(seed)
+    config = NwModelConfig(
+        input_dim=mlp_out_dim,
+        init_sigma=1.,
+        init_r_scale=1.,
+        trainable_weights_matrix=trainable_weights,
+        mlp_config=MlpConfig(
+            in_dim=x.shape[1],
+            hidden_dim=mlp_hid_dim,
+            out_dim=mlp_out_dim,
+            dropout=dropout,
+        )
+    )
+    model = RelNwRegr(config)
+    optimizer = torch.optim.AdamW(model.parameters(), weight_decay=weight_decay)
+    loss_fn = torch.nn.MSELoss()
+    last_val_r2: float | None = None
+    last_val_mse: float | None = None
+    model.train()
+    for epoch in tqdm(range(_n_epochs)):
+        optimizer.zero_grad()
+        y_pred = model(x_b, y_b, x_q, r_q_b)
+        loss = loss_fn(y_pred, y_q)
+        loss.backward()
+        optimizer.step()
+        if writer:
+            writer.add_scalar("train/loss", loss.item(), epoch)
+
+        if epoch % 20 != 0: continue
+
+        model.eval()
+        with torch.no_grad():
+            y_v_pred = model(
+                x_norm[train_ids],
+                y_train,
+                x_v,
+                r_val_nval,
+            )
+            y_v_pred_np = y_v_pred.numpy()
+            y_v_np = y_v.numpy()
+
+        last_val_mse = mean_squared_error(y_v_np, y_v_pred_np)
+        last_val_r2 = r2_score(y_v_np, y_v_pred_np)
+        if writer:
+            writer.add_scalar("val/mse", last_val_mse, epoch)
+            writer.add_scalar("val/r2", last_val_r2, epoch)
+        
+        model.train()
+    
+    if last_val_r2 is None:
+        raise ValueError("last_val_r2 is None, probably not enough iterations")
+    return last_val_mse if last_val_mse is not None else float('inf'), last_val_r2 if last_val_r2 is not None else -float('inf')
+
