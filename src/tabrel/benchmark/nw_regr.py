@@ -337,7 +337,7 @@ def train_nw_arbitrary(
             x_query_norm,
             r_query_backgnd_torch,
         )
-        # TODO why errors here in run_training?
+
         loss = loss_fn(y_pred, y_query_torch)
         loss.backward()
         optimizer.step()
@@ -403,6 +403,7 @@ def run_training(
         (False, True, False),
         (False, False, False),
         (False, False, True),
+        (True, False, True),
     ):
         if  add_mlp and mlp_config is None:
             continue
@@ -447,7 +448,7 @@ def run_training(
     )
 
     if rel_as_feats is not None:
-        x_broad = np.concatenate((x, rel_as_feats), axis=1)
+        x_broad = np.concatenate((x, rel_as_feats), axis=1)[:, :100]
         x_backgnd_broad = x_broad[backgnd_indices]
         x_query_broad = x_broad[query_indices]
         x_val_broad = x_broad[val_indices]
