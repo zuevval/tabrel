@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Final, Optional
+from typing import Any, Callable, Final, Optional
 
 import numpy as np
 import torch
@@ -225,12 +225,12 @@ def train_relnet(
     val_mask = torch.zeros(n, dtype=torch.bool, device=device)
     val_mask[val_indices] = True
 
-    # Model & optimizer
+    embeddings: Callable = lambda x: x
+    flatten = nn.Flatten()
     if periodic_embed_dim is not None:
         embeddings = PeriodicEmbeddings(
             n_features=x_tensor.shape[1], d_embedding=periodic_embed_dim, lite=True
         )
-        flatten = nn.Flatten()
         in_dim = periodic_embed_dim * x.shape[1] + 1
     else:
         in_dim = x.shape[1] + 1
@@ -262,11 +262,7 @@ def train_relnet(
         # xy_train: features plus partially known targets for background nodes
         xy_train = torch.cat(
             [
-                (
-                    flatten(embeddings(x_tensor))
-                    if periodic_embed_dim is not None
-                    else x_tensor
-                ),
+                flatten(embeddings(x_tensor)),
                 y_tensor.masked_fill(~backgnd_mask, 0).unsqueeze(1),
             ],
             dim=1,

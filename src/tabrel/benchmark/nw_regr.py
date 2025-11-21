@@ -375,9 +375,9 @@ def train_nw_arbitrary(
 
 
 def run_training(
-    x: np.ndarray,
-    y: np.ndarray,
-    r: np.ndarray,
+    x: npt.NDArray,
+    y: npt.NDArray,
+    r: npt.NDArray,
     backgnd_indices: np.ndarray,
     query_indices: np.ndarray,
     val_indices: np.ndarray,
