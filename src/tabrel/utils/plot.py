@@ -2,6 +2,7 @@ from typing import Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import ks_2samp
 
 
 def plot_violin(
@@ -25,3 +26,33 @@ def plot_violin(
     ax.set_title(title)
     ax.set_xticks(bar_locs)
     ax.set_xticklabels(labels)
+
+
+def calc_diffs(y: np.ndarray, r: np.ndarray, threshold: float, plot: bool, out_fname: str | None) -> float:
+    """
+    @param y: array of shape (n,)
+    @param r: array of shape (n, n)
+    @param threshold: if r[i, j] > threshold, i,j considered adjacent
+
+    @returns two-sided KS test p-value
+    """
+    y_2d = y[np.newaxis, :]
+    y_diffs = y_2d.T - y_2d
+
+    adj_diffs = y_diffs[np.where(np.tril(r > threshold).astype(int))].flatten()
+    backgnd_diffs = y_diffs[
+        np.where(np.tril(1 - (r > threshold).astype(int)))
+    ].flatten()
+
+    if plot:
+        plt.figure(figsize=(10, 10))
+        _, (ax_bckgnd, ax_adj) = plt.subplots(nrows=2, ncols=1, sharex=True)
+        ax_bckgnd.hist(backgnd_diffs, density=True)
+        ax_bckgnd.set_title("non-related")
+        ax_adj.hist(adj_diffs, density=True)
+        ax_adj.set_title("related")
+        if out_fname:
+            plt.savefig(out_fname)
+
+    res = ks_2samp(backgnd_diffs, adj_diffs)
+    return res.pvalue  # type:ignore

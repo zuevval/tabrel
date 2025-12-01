@@ -5,6 +5,7 @@ import optuna
 import torch
 
 from tabrel.train import train_relnet
+from tabrel.benchmark.nw_regr import train_nw_mlp
 
 
 @dataclass(frozen=True)
@@ -41,5 +42,30 @@ def build_objective_relnet(
         periodic_embed_dim=trial.suggest_int("periodic_embed_dim", 1, 100),
         num_heads=num_heads,
         dropout=trial.suggest_float("dropout", 0, 0.5),
+    )
+    return r2
+
+
+def build_objective_nw_mlp(
+    trial: optuna.Trial,
+    data: RelTrainData,
+    n_epochs: int,
+    seed: int,
+) -> float:
+    _, r2 = train_nw_mlp(
+        x=data.x,
+        y=data.y,
+        r=data.r,
+        back_ids=data.back_ids,
+        query_ids=data.query_ids,
+        val_ids=data.val_ids,
+        mlp_hid_dim=trial.suggest_int("mlp_hid_dim", 4, 100),
+        mlp_out_dim=trial.suggest_int("mlp_out_dim", 1, 40),
+        dropout=trial.suggest_float("dropout", 0.0, 0.6),
+        weight_decay=trial.suggest_float("weight_decay", 0.0, 1e-1),
+        _n_epochs=n_epochs,
+        writer=None,
+        trainable_weights=False,
+        seed=seed,
     )
     return r2
