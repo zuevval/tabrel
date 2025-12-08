@@ -255,7 +255,7 @@ def train_relnet(
         writer = SummaryWriter(log_dir=tb_logdir)
 
     range_epochs = range(n_epochs)
-    for epoch in tqdm(range_epochs) if progress_bar else range_epochs:
+    for epoch in tqdm(range_epochs, desc="train relnet") if progress_bar else range_epochs:
         model.train()
         optimizer.zero_grad()
 

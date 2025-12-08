@@ -510,6 +510,7 @@ def train_nw_mlp(
         writer: SummaryWriter | None,
         trainable_weights: bool,
         seed: int,
+        # TODO LR to params, specify in AdamW
 ) -> tuple[float, float]:
     train_ids = np.concatenate([back_ids, query_ids])
     x_torch, y_torch = to_tensor(x), to_tensor(y)
